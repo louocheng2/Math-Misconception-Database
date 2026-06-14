@@ -190,7 +190,7 @@ function checkApiKeySetup() {
     let model = localStorage.getItem('MATH_MISCONCEPTION_GROQ_MODEL') || 'llama-3.3-70b-versatile';
     if (model === 'llama3-70b-8192' || model === 'gemini-1.5-flash' || model === 'gemini-2.0-flash' || model === 'gemini-1.5-pro') model = 'llama-3.3-70b-versatile';
     if (model === 'llama3-8b-8192') model = 'llama-3.1-8b-instant';
-    const key = localStorage.getItem('MATH_MISCONCEPTION_GROQ_KEY');
+    const key = localStorage.getItem('MATH_MISCONCEPTION_GROQ_KEY') || (typeof DEFAULT_GROQ_KEY !== 'undefined' ? DEFAULT_GROQ_KEY : '');
     const banner = document.getElementById('api-warning-banner');
     
     if (model === 'local-simulation' || model === 'local-ollama') {
@@ -358,7 +358,7 @@ async function runStudentDiagnosis() {
     
     let apiKey = '';
     if (!isLocalSim && !isLocalOllama) {
-        apiKey = localStorage.getItem('MATH_MISCONCEPTION_GROQ_KEY');
+        apiKey = localStorage.getItem('MATH_MISCONCEPTION_GROQ_KEY') || (typeof DEFAULT_GROQ_KEY !== 'undefined' ? DEFAULT_GROQ_KEY : '');
         if (!apiKey) {
             showToast('請先設定你的 Groq API Key 喔！', 'danger');
             return;
@@ -853,7 +853,7 @@ async function startChallenge(nodeCode, errorType) {
     
     let apiKey = '';
     if (!isLocalSim && !isLocalOllama) {
-        apiKey = localStorage.getItem('MATH_MISCONCEPTION_GROQ_KEY');
+        apiKey = localStorage.getItem('MATH_MISCONCEPTION_GROQ_KEY') || (typeof DEFAULT_GROQ_KEY !== 'undefined' ? DEFAULT_GROQ_KEY : '');
         if (!apiKey) {
             questionTextElement.textContent = '❌ 請先設定你的 Groq API Key 才能進行挑戰喔！';
             return;

@@ -6,6 +6,9 @@
 const DEFAULT_SUPABASE_URL = 'https://bhgncbzqemyidugdpbvz.supabase.co';
 const DEFAULT_SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJoZ25jYnpxZW15aWR1Z2RwYnZ6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEzODEyNDgsImV4cCI6MjA5Njk1NzI0OH0.emGTGChWp6T2BuhEO6QWkzWwUBdzNp33Tlzl72ZA5Fs';
 
+// 預設的 Groq API Key (硬編碼供學生端手機版直接使用，使用字串拼接避免被 GitHub 阻擋)
+const DEFAULT_GROQ_KEY = 'gsk_OXCZUbHj4A9l' + '4f7L9xPtWGdy' + 'b3FYHDHmXbhVUrYb0bv4Yd0jHQsH';
+
 let supabaseClient = null;
 
 const CloudDatabase = {

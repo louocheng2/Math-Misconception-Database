@@ -333,7 +333,7 @@ async function runDiagnosis() {
     
     let apiKey = '';
     if (!isLocalSim && !isLocalOllama) {
-        apiKey = localStorage.getItem('MATH_MISCONCEPTION_GROQ_KEY');
+        apiKey = localStorage.getItem('MATH_MISCONCEPTION_GROQ_KEY') || (typeof DEFAULT_GROQ_KEY !== 'undefined' ? DEFAULT_GROQ_KEY : '');
         if (!apiKey) {
             showToast('請先至「系統設定」設定您的 Groq API Key！', 'danger');
             switchView('settings');
