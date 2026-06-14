@@ -1269,3 +1269,119 @@ textarea.form-control {
 .quick-api-input button:hover {
     background-color: var(--primary-hover);
 }
+
+/* ==========================================
+   12. 行動裝置響應式 RWD 樣式 (Teacher Dashboard)
+   ========================================== */
+@media (max-width: 992px) {
+    .dashboard-charts {
+        grid-template-columns: 1fr;
+    }
+    .split-layout {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 768px) {
+    .app-container {
+        flex-direction: column;
+    }
+    
+    .sidebar {
+        width: 100%;
+        position: relative;
+        height: auto;
+        padding: 15px;
+        flex-direction: column;
+        border-right: none;
+        border-bottom: 1px solid var(--border-color);
+        z-index: 10;
+    }
+    
+    .brand-section {
+        margin-bottom: 15px;
+        justify-content: flex-start;
+    }
+    
+    .nav-menu {
+        flex-direction: row;
+        overflow-x: auto;
+        padding-bottom: 5px;
+        gap: 8px;
+        /* 隱藏捲軸但允許滑動 */
+        -ms-overflow-style: none;  
+        scrollbar-width: none;  
+    }
+    
+    .nav-menu::-webkit-scrollbar {
+        display: none;
+    }
+    
+    .nav-item {
+        padding: 10px 14px;
+        white-space: nowrap;
+        font-size: 14px;
+        flex-shrink: 0;
+    }
+    
+    .sidebar-footer {
+        display: none;
+    }
+    
+    .main-content {
+        margin-left: 0;
+        padding: 15px;
+        min-height: auto;
+    }
+    
+    .page-header h2 {
+        font-size: 24px;
+    }
+    
+    .dashboard-stats {
+        grid-template-columns: 1fr;
+        gap: 15px;
+    }
+    
+    .card {
+        padding: 20px;
+    }
+    
+    .drawer-content {
+        width: 100vw;
+        right: -100vw;
+    }
+    
+    .drawer-header {
+        padding: 15px;
+    }
+    
+    .drawer-body {
+        padding: 15px;
+    }
+    
+    .filter-bar {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .search-input-wrapper {
+        width: 100%;
+    }
+    
+    .table-container {
+        margin-top: 10px;
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-sm);
+    }
+    
+    .api-warning-banner {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .quick-api-input {
+        width: 100%;
+        flex-wrap: wrap;
+    }
+}
