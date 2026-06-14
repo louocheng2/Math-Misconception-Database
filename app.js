@@ -367,11 +367,17 @@ async function runDiagnosis() {
         } else if (isLocalOllama) {
             parsedResult = await callLocalOllama(studentName, grade, question, calcText, false);
         } else {
-            // 取得該年級所有指標的縮影，提供給 Groq 作為參考
-            const gradeNodes = DataService.getNodesByGrade(grade);
-            const curriculumContext = gradeNodes.map(n => {
-                const presets = n.preset_misconceptions.map(m => ` - ${m.name}: ${m.description} (例如：${m.example})`).join('\n');
-                return `指標 [${n.code}] ${n.title}\n描述：${n.description}\n常見迷思樣態：\n${presets}`;
+            // 提供所有低年級與本年級的課綱大綱，讓 AI 能夠跨年級抓出基礎觀念錯誤
+            const targetGrade = parseInt(grade);
+            const allNodes = DataService.getAllNodes().filter(n => n.grade <= targetGrade);
+            const curriculumContext = allNodes.map(n => {
+                // 為了節省 AI 處理量 (Token)，只針對相近的兩個年級提供詳細迷思清單，其餘年級只提供指標大綱
+                if (n.grade >= targetGrade - 1) {
+                    const presets = n.preset_misconceptions.map(m => ` - ${m.name}: ${m.description}`).join('\n');
+                    return `指標 [${n.code}] ${n.title}\n描述：${n.description}\n常見迷思樣態：\n${presets}`;
+                } else {
+                    return `指標 [${n.code}] ${n.title}\n描述：${n.description}`;
+                }
             }).join('\n\n');
 
             // 建置 Prompt

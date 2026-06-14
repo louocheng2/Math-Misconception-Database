@@ -391,11 +391,17 @@ async function runStudentDiagnosis() {
         } else if (isLocalOllama) {
             parsedResult = await callLocalOllama(AppState.studentName, AppState.grade, question, calcText, true);
         } else {
-            // 載入該年級的指標上下文
-            const gradeNodes = DataService.getNodesByGrade(AppState.grade);
-            const curriculumContext = gradeNodes.map(n => {
-                const presets = n.preset_misconceptions.map(m => ` - ${m.name}: ${m.description} (例：${m.example})`).join('\n');
-                return `指標 [${n.code}] ${n.title}\n指標說明：${n.description}\n預設迷思樣態：\n${presets}`;
+            // 載入該年級與以前所有年級的指標上下文 (允許跨年級追溯基礎迷思)
+            const targetGrade = parseInt(AppState.grade);
+            const allNodes = DataService.getAllNodes().filter(n => n.grade <= targetGrade);
+            const curriculumContext = allNodes.map(n => {
+                // 為了節省 Token，只提供最近兩年的詳細預設迷思，以前的年級只提供指標標題與說明
+                if (n.grade >= targetGrade - 1) {
+                    const presets = n.preset_misconceptions.map(m => ` - ${m.name}: ${m.description}`).join('\n');
+                    return `指標 [${n.code}] ${n.title}\n指標說明：${n.description}\n預設迷思樣態：\n${presets}`;
+                } else {
+                    return `指標 [${n.code}] ${n.title}\n指標說明：${n.description}`;
+                }
             }).join('\n\n');
 
             const prompt = `你是一位臺灣國小數學輔導教師。說話語氣溫和、親切、富有同理心與童趣，常用「喔」、「囉」、「呀」、「哇」、「哈」等童趣語氣，多用正面鼓勵，帶領學生找出自己計算的盲點。
@@ -1027,11 +1033,16 @@ function showToast(message, type = 'success') {
 async function callLocalOllama(studentName, grade, question, calcText, isStudentPortal) {
     const ollamaModelName = localStorage.getItem('MATH_MISCONCEPTION_OLLAMA_MODEL') || 'qwen2.5:3b';
     
-    // 取得該年級所有指標的縮影，提供給 Ollama 作為參考
-    const gradeNodes = DataService.getNodesByGrade(grade);
-    const curriculumContext = gradeNodes.map(n => {
-        const presets = n.preset_misconceptions.map(m => ` - ${m.name}: ${m.description} (例如：${m.example})`).join('\n');
-        return `指標 [${n.code}] ${n.title}\n描述：${n.description}\n常見迷思樣態：\n${presets}`;
+    // 取得該年級與以前所有年級的指標縮影，提供給 Ollama 作為參考 (允許跨年級追溯基礎迷思)
+    const targetGrade = parseInt(grade);
+    const allNodes = DataService.getAllNodes().filter(n => n.grade <= targetGrade);
+    const curriculumContext = allNodes.map(n => {
+        if (n.grade >= targetGrade - 1) {
+            const presets = n.preset_misconceptions.map(m => ` - ${m.name}: ${m.description}`).join('\n');
+            return `指標 [${n.code}] ${n.title}\n描述：${n.description}\n常見迷思樣態：\n${presets}`;
+        } else {
+            return `指標 [${n.code}] ${n.title}\n描述：${n.description}`;
+        }
     }).join('\n\n');
 
     let personaPrompt = '';
