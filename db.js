@@ -84,8 +84,7 @@ const CloudDatabase = {
         const { teacherId } = this.getSettings();
         const recordData = {
             ...record,
-            teacher_id: teacherId,
-            updated_at: new Date()
+            teacher_id: teacherId
         };
 
         if (!supabaseClient) {
