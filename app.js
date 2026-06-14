@@ -299,7 +299,7 @@ function clearDiagnosisForm() {
 }
 
 // ==========================================
-// Google Gemini AI 診斷引擎
+// Groq AI 診斷引擎
 // ==========================================
 async function runDiagnosis() {
     const studentName = document.getElementById('diag-student-name').value.trim();
@@ -367,7 +367,7 @@ async function runDiagnosis() {
         } else if (isLocalOllama) {
             parsedResult = await callLocalOllama(studentName, grade, question, calcText, false);
         } else {
-            // 取得該年級所有指標的縮影，提供給 Gemini 作為參考
+            // 取得該年級所有指標的縮影，提供給 Groq 作為參考
             const gradeNodes = DataService.getNodesByGrade(grade);
             const curriculumContext = gradeNodes.map(n => {
                 const presets = n.preset_misconceptions.map(m => ` - ${m.name}: ${m.description} (例如：${m.example})`).join('\n');
@@ -1047,7 +1047,7 @@ function saveQuickApiKey() {
     localStorage.setItem('MATH_MISCONCEPTION_GROQ_MODEL', 'llama-3.3-70b-versatile');
     checkApiKeySetup();
     loadSettingsToForm(); // 同步更新設定頁面
-    showToast('Gemini API Key 設定成功！');
+    showToast('Groq API Key 設定成功！');
 }
 
 // 切換至免金鑰本地引擎

@@ -174,7 +174,7 @@ function saveQuickApiKey() {
     // 儲存金鑰後，將模型改回預設的 llama-3.3-70b-versatile 以發揮完整能力
     localStorage.setItem('MATH_MISCONCEPTION_GROQ_MODEL', 'llama-3.3-70b-versatile');
     checkApiKeySetup();
-    showToast('Gemini API Key 設定成功！');
+    showToast('Groq API Key 設定成功！');
 }
 
 // 切換至免金鑰本地引擎
@@ -321,7 +321,7 @@ async function runStudentDiagnosis() {
     if (!isLocalSim && !isLocalOllama) {
         apiKey = localStorage.getItem('MATH_MISCONCEPTION_GROQ_KEY');
         if (!apiKey) {
-            showToast('請先設定你的 Gemini API Key 喔！', 'danger');
+            showToast('請先設定你的 Groq API Key 喔！', 'danger');
             return;
         }
     }
@@ -816,7 +816,7 @@ async function startChallenge(nodeCode, errorType) {
     if (!isLocalSim && !isLocalOllama) {
         apiKey = localStorage.getItem('MATH_MISCONCEPTION_GROQ_KEY');
         if (!apiKey) {
-            questionTextElement.textContent = '❌ 請先設定你的 Gemini API Key 才能進行挑戰喔！';
+            questionTextElement.textContent = '❌ 請先設定你的 Groq API Key 才能進行挑戰喔！';
             return;
         }
     }

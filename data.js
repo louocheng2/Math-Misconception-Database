@@ -1559,7 +1559,7 @@ const HeuristicDiagnosticEngine = {
                     nodeCode = 'N-0-0';
                     nodeTitle = '未提供文字';
                     errorType = '無法辨識圖片';
-                    errorDescription = '本地模擬器無法辨識圖片內容。請輸入算式文字，或切換至雲端 AI (Gemini) 來解析圖片。';
+                    errorDescription = '本地模擬器無法辨識圖片內容。請輸入算式文字，或切換至雲端 AI (Groq) 來解析圖片。';
                     steps = [
                         { step_number: 1, content: '上傳圖片', is_correct: true, error_explanation: null }
                     ];
@@ -1573,7 +1573,7 @@ const HeuristicDiagnosticEngine = {
                     steps = [
                         { step_number: 1, content: fullText.substring(0, 30) + (fullText.length > 30 ? '...' : ''), is_correct: true, error_explanation: null }
                     ];
-                    remediation = `太棒了 ${studentName}！目前的本地規則庫沒有找出明顯的錯誤。如果需要更精確的分析，建議開啟 Gemini 雲端 AI 進行深度診斷喔！`;
+                    remediation = `太棒了 ${studentName}！目前的本地規則庫沒有找出明顯的錯誤。如果需要更精確的分析，建議開啟 Groq 雲端 AI 進行深度診斷喔！`;
                 }
             }
         }
@@ -1589,7 +1589,7 @@ const HeuristicDiagnosticEngine = {
             error_type: errorType,
             error_description: errorDescription || '本地模擬引擎成功檢測並定位此迷思樣態。',
             steps: steps,
-            remediation: remediation || '本次診斷由本地模擬 AI 引擎完成！請在「系統設定」設定 Gemini API Key 以獲取最高精準度的完整多模態診斷小卡喔！'
+            remediation: remediation || '本次診斷由本地模擬 AI 引擎完成！請在「系統設定」設定 Groq API Key 以獲取最高精準度的完整多模態診斷小卡喔！'
         };
     },
     
