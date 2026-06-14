@@ -3,8 +3,8 @@
  */
 
 // 預設的 Supabase 連線資訊 (可由使用者在 UI 設定中覆寫並存入 localStorage)
-const DEFAULT_SUPABASE_URL = 'https://qvepxxnikggexobibsvw.supabase.co';
-const DEFAULT_SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF2ZXB4eG5pa2dnZXhvYmlic3Z3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYwMzk1OTQsImV4cCI6MjA5MTYxNTU5NH0.XZ44sLqdgtQ9UMx2mNZfI-SyxwRVXQFNr90kpGdrFWE';
+const DEFAULT_SUPABASE_URL = 'https://bhgncbzqemyidugdpbvz.supabase.co';
+const DEFAULT_SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJoZ25jYnpxZW15aWR1Z2RwYnZ6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEzODEyNDgsImV4cCI6MjA5Njk1NzI0OH0.emGTGChWp6T2BuhEO6QWkzWwUBdzNp33Tlzl72ZA5Fs';
 
 let supabaseClient = null;
 
