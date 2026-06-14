@@ -121,6 +121,17 @@ function logoutStudent() {
     showToast('已登出學習帳號。');
 }
 
+// 驗證教師身分 (前往後台前)
+window.verifyTeacherAccess = function(event) {
+    event.preventDefault();
+    const pwd = prompt("請輸入教師專屬密碼以前往後台：");
+    if (pwd === "admin") {
+        window.location.href = "index.html";
+    } else if (pwd !== null) {
+        alert("密碼錯誤，請重新輸入！\n(提示：預設密碼為 admin)");
+    }
+}
+
 // 顯示 App 主畫面並加載資料
 async function showAppScreen() {
     document.getElementById('login-screen').style.display = 'none';
