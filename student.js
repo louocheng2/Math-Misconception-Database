@@ -33,12 +33,31 @@ document.addEventListener('DOMContentLoaded', async () => {
     CloudDatabase.init();
     await updateCloudStatus();
     
-    // 3. 設定 Drag & Drop
+    // 3. 載入學生清單供下拉選單使用
+    populateStudentList();
+    
+    // 4. 設定 Drag & Drop
     setupDragAndDrop();
     
-    // 4. 共享檢測 API Key
+    // 5. 共享檢測 API Key
     checkApiKeySetup();
 });
+
+// 載入所有不重複的學生名單供登入時自動完成
+async function populateStudentList() {
+    const allRecords = await CloudDatabase.fetchAllRecords();
+    const uniqueNames = [...new Set(allRecords.map(r => r.student_name.trim()))];
+    
+    const dataList = document.getElementById('student-name-list');
+    if (dataList) {
+        dataList.innerHTML = '';
+        uniqueNames.forEach(name => {
+            const option = document.createElement('option');
+            option.value = name;
+            dataList.appendChild(option);
+        });
+    }
+}
 
 // 檢查是否已登入
 function checkSession() {
@@ -130,11 +149,10 @@ async function updateCloudStatus() {
 
 // 刷新並拉取學生的歷史資料
 async function refreshStudentRecords() {
-    // 獲取所有紀錄，並在前端依據學生姓名、年級進行過濾
+    // 獲取所有紀錄，並在前端依據學生姓名進行過濾 (跨年級長久紀錄)
     const allRecords = await CloudDatabase.fetchAllRecords();
     AppState.records = allRecords.filter(r => 
-        r.student_name.trim() === AppState.studentName.trim() && 
-        parseInt(r.grade) === AppState.grade
+        r.student_name.trim() === AppState.studentName.trim()
     );
     
     // 更新錯題本的 badge 數量 (is_correct === false)

@@ -26,7 +26,10 @@
             
             <div class="form-group">
                 <label for="student-name">你的名字：</label>
-                <input type="text" id="student-name" class="form-control" placeholder="輸入你的姓名 (例：陳小明)" required>
+                <input type="text" id="student-name" class="form-control" placeholder="輸入你的姓名 (例：陳小明)" list="student-name-list" required>
+                <datalist id="student-name-list">
+                    <!-- 動態由 JS 填入 -->
+                </datalist>
             </div>
             
             <div class="form-group">
