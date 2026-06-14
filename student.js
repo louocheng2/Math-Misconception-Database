@@ -48,14 +48,24 @@ async function populateStudentList() {
     const allRecords = await CloudDatabase.fetchAllRecords();
     const uniqueNames = [...new Set(allRecords.map(r => r.student_name.trim()))];
     
-    const dataList = document.getElementById('student-name-list');
-    if (dataList) {
-        dataList.innerHTML = '';
+    const selectBox = document.getElementById('student-name-select');
+    if (selectBox) {
+        selectBox.innerHTML = '<option value="">-- 點擊選擇已建立的學生 --</option>';
         uniqueNames.forEach(name => {
             const option = document.createElement('option');
             option.value = name;
-            dataList.appendChild(option);
+            option.textContent = name;
+            selectBox.appendChild(option);
         });
+    }
+}
+
+// 供 HTML onchange 使用，選擇後自動填入下方輸入框
+window.handleStudentSelectChange = function() {
+    const selectBox = document.getElementById('student-name-select');
+    const input = document.getElementById('student-name');
+    if (selectBox && selectBox.value) {
+        input.value = selectBox.value;
     }
 }
 
