@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="zh-Hant" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>學生迷思概念資料庫 - 學生自主學習網頁</title>
+    <!-- FontAwesome 圖標庫 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts Outfit & Noto Sans TC -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800&family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
+    <!-- 學生網頁專屬樣式表 -->
+    <link rel="stylesheet" href="student.css">
+</head>
+<body>
+
+    <!-- 1. 學生登入面版 (Welcome Screen) -->
+    <div id="login-screen" class="login-screen">
+        <div class="login-card">
+            <div class="login-brand">
+                <div class="brand-icon">
+                    <i class="fa-solid fa-gamepad"></i>
+                </div>
+                <h2>學生迷思概念資料庫</h2>
+                <p>自我診斷錯誤，挑戰迷思魔王！</p>
+            </div>
+            
+            <div class="form-group">
+                <label for="student-name">你的名字：</label>
+                <input type="text" id="student-name" class="form-control" placeholder="輸入你的姓名 (例：陳小明)" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="student-grade">你的年級：</label>
+                <select id="student-grade" class="form-control">
+                    <option value="1">一年級 🍎</option>
+                    <option value="2">二年級 🍌</option>
+                    <option value="3">三年級 🍇</option>
+                    <option value="4">四年級 🍉</option>
+                    <option value="5" selected>五年級 🚀</option>
+                    <option value="6">六年級 🌟</option>
+                </select>
+            </div>
+            
+            <button class="btn btn-login" onclick="loginStudent()">
+                開始冒險之旅 <i class="fa-solid fa-rocket"></i>
+            </button>
+            
+            <div class="login-footer">
+                <a href="index.html" class="teacher-link"><i class="fa-solid fa-chalkboard-user"></i> 我是老師，前往教師後台</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- 2. 學生主介面 (Student Portal App) -->
+    <div id="app-container" class="app-container" style="display: none;">
+        <!-- 頂部導覽列 -->
+        <header class="app-header">
+            <div class="header-left">
+                <div class="app-logo">
+                    <i class="fa-solid fa-graduation-cap"></i>
+                    <span>學生迷思概念資料庫</span>
+                </div>
+            </div>
+            <div class="header-right">
+                <div class="user-badge">
+                    <span class="user-avatar" id="user-avatar-char">明</span>
+                    <span class="user-info" id="user-welcome-text">陳小明 (五年級)</span>
+                </div>
+                <button class="btn-logout" onclick="logoutStudent()" title="登出">
+                    <i class="fa-solid fa-right-from-bracket"></i>
+                </button>
+            </div>
+        </header>
+
+        <div class="main-layout">
+            <!-- 側邊選單 -->
+            <aside class="sidebar">
+                <nav class="nav-menu">
+                    <div class="nav-item active" id="nav-diag" onclick="switchView('diag')">
+                        <i class="fa-solid fa-magnifying-glass-chart"></i>
+                        <span>🔬 智能自我診斷</span>
+                    </div>
+                    <div class="nav-item" id="nav-mistakes" onclick="switchView('mistakes')">
+                        <i class="fa-solid fa-book-open"></i>
+                        <span>📚 我的學習錯題本</span>
+                        <span class="badge-count" id="mistake-count-badge">0</span>
+                    </div>
+                    <div class="nav-item" id="nav-challenge" onclick="switchView('challenge')">
+                        <i class="fa-solid fa-trophy"></i>
+                        <span>🎯 迷思挑戰擂台</span>
+                    </div>
+                </nav>
+                
+                <div class="sidebar-footer">
+                    <div class="system-status-info">
+                        <span class="status-dot" id="db-status-dot"></span>
+                        <span id="db-status-text" class="status-text">連線載入中...</span>
+                    </div>
+                    <a href="index.html" class="back-to-teacher"><i class="fa-solid fa-arrow-left"></i> 回教師後台</a>
+                </div>
+            </aside>
+
+            <!-- 主內容展示區 -->
+            <main class="content-panel">
+
+                <!-- 溫馨提示：未設定 API Key / 引擎選擇 -->
+                <div id="api-warning-banner" class="api-warning-banner" style="display: none;">
+                    <div class="warning-icon"><i class="fa-solid fa-triangle-exclamation"></i></div>
+                    <div class="warning-text" style="flex-grow: 1;">
+                        <strong>提醒：</strong> 本機尚未設定 Google Gemini API Key。您可以在此貼入金鑰，或切換至免金鑰的本地 AI 引擎：
+                    </div>
+                    <div class="quick-api-input" style="gap: 8px; flex-wrap: wrap;">
+                        <input type="password" id="banner-api-key" placeholder="貼上 Gemini API Key" style="max-width: 180px;">
+                        <button onclick="saveQuickApiKey()">儲存金鑰</button>
+                        <button onclick="switchToLocalEngine('local-simulation')" style="background-color: var(--success); color: white;">使用本地模擬 AI (免金鑰)</button>
+                        <button onclick="switchToLocalEngine('local-ollama')" style="background-color: var(--secondary); color: white;">使用本地 Ollama</button>
+                    </div>
+                </div>
+
+                <!-- 視圖一：智能自我診斷 (Self-Diagnosis) -->
+                <section id="view-diag" class="view-section active">
+                    <div class="section-header">
+                        <h2>🔬 智能自我診斷</h2>
+                        <p>把你不確定的題目或算式寫在紙上並拍下來，讓 AI 老師幫你看看哪裡有小迷思吧！</p>
+                    </div>
+
+                    <div class="diag-grid">
+                        <!-- 左側：輸入表單 -->
+                        <div class="card card-form">
+                            <h3 class="card-title"><i class="fa-solid fa-pen-to-square"></i> 填寫你的題目與算式</h3>
+                            
+                            <div class="form-group">
+                                <label for="diag-question">數學題目：<span style="font-weight: normal; font-size: 13px; color: var(--text-muted);">（如果照片裡已經有題目，這裡可以不填喔！）</span></label>
+                                <textarea id="diag-question" class="form-control" rows="2" placeholder="請輸入你正在寫的題目（若上傳的照片中已經同時包含題目與算式，此處可留空不填！）"></textarea>
+                            </div>
+
+                            <div class="form-group">
+                                <label>計算過程照片上傳 (支援手寫算式)：</label>
+                                <div class="upload-area" id="image-upload-zone" onclick="triggerFileInput()">
+                                    <div class="upload-icon">
+                                        <i class="fa-solid fa-cloud-arrow-up"></i>
+                                    </div>
+                                    <p class="upload-main-text">點擊這裡選擇照片，或直接拍照上傳</p>
+                                    <p class="upload-sub-text">請拍得清晰一點喔，檔案小於 5MB</p>
+                                    <input type="file" id="diag-image-file" style="display: none;" accept="image/*" onchange="handleFileSelect(event)">
+                                </div>
+                                <div class="preview-container" id="image-preview-container" style="display: none;">
+                                    <img src="" id="image-preview" alt="上傳的圖片預覽">
+                                    <button class="btn-remove-preview" onclick="removeImagePreview()"><i class="fa-solid fa-trash-can"></i> 刪除照片</button>
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="diag-calculation-text">計算過程文字 (若沒照片可以寫在這裡)：</label>
+                                <textarea id="diag-calculation-text" class="form-control" rows="2" placeholder="請輸入你解題時寫的算式 (例：1/2 + 1/3 = 2/5)"></textarea>
+                            </div>
+
+                            <button class="btn btn-action-large" onclick="runStudentDiagnosis()">
+                                <i class="fa-solid fa-magic"></i> 送出診斷，呼叫 AI 老師
+                            </button>
+                        </div>
+
+                        <!-- 右側：診斷結果 -->
+                        <div class="card card-result" id="diag-result-card">
+                            <!-- 空白狀態 -->
+                            <div class="placeholder-state" id="diag-empty">
+                                <i class="fa-regular fa-face-smile"></i>
+                                <h3>準備好開始了嗎？</h3>
+                                <p>在左邊填入資料並點擊「送出診斷」，AI 老師會在這裡為你解密你的算式喔！</p>
+                            </div>
+
+                            <!-- 載入中狀態 -->
+                            <div class="placeholder-state" id="diag-loading" style="display: none;">
+                                <div class="spinner"></div>
+                                <h3 id="diag-loading-title">AI 老師正在讀取你的算式...</h3>
+                                <p id="diag-loading-desc">正比對課綱中...</p>
+                            </div>
+
+                            <!-- 結果展示 -->
+                            <div class="student-report" id="diag-result-content" style="display: none;">
+                                <div class="report-header">
+                                    <div id="result-status-badge">
+                                        <span class="badge badge-error"><i class="fa-solid fa-face-frown"></i> 加油！發現小迷思</span>
+                                    </div>
+                                    <h3 id="result-title">陳小明 的數學診斷小卡</h3>
+                                    <p id="result-date">日期：2026/06/13</p>
+                                </div>
+
+                                <div class="report-block info-block">
+                                    <div class="block-title"><i class="fa-solid fa-compass"></i> 對應學習內容</div>
+                                    <p id="result-curriculum-title" class="curriculum-code">N-5-4 異分母分數加減</p>
+                                </div>
+
+                                <div class="report-block mistake-block">
+                                    <div class="block-title"><i class="fa-solid fa-skull-crossbones"></i> 你的小迷思樣態</div>
+                                    <h4 id="result-error-name">分子分母直接相加</h4>
+                                    <p id="result-error-desc">在進行分數加減時，直接將分子加分子、分母加分母，忘記了必須先通分才能相加。</p>
+                                </div>
+
+                                <div class="report-block steps-block">
+                                    <div class="block-title"><i class="fa-solid fa-list-check"></i> 算式步驟診斷歷程</div>
+                                    <div class="steps-timeline" id="result-steps-timeline">
+                                        <!-- JS 動態插入 -->
+                                    </div>
+                                </div>
+
+                                <div class="report-block teacher-block">
+                                    <div class="block-title"><i class="fa-solid fa-face-laugh-beam"></i> AI 老師的解題提示</div>
+                                    <div class="teacher-feedback-box" id="result-remediation">
+                                        親愛的同學，當分母不同的時候代表把東西分的大小是不一樣的喔！所以不能直接相加。請記得先找出兩個分母的最小公倍數（通分），將他們化成一樣大的切片，才能把分子加起來喔！再試一次，你一定可以的！
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 視圖二：我的學習錯題本 (Mistake Book) -->
+                <section id="view-mistakes" class="view-section">
+                    <div class="section-header">
+                        <h2>📚 我的學習錯題本</h2>
+                        <p>這裏記錄了你以前寫錯過的題目。隨時點開查看當時的錯誤原因，並嘗試重新挑戰它們，把迷思都終結掉吧！</p>
+                    </div>
+
+                    <div class="mistake-list-container">
+                        <div class="card">
+                            <div class="filter-row">
+                                <span class="filter-label"><i class="fa-solid fa-filter"></i> 篩選科目：</span>
+                                <div class="filter-badges">
+                                    <button class="filter-badge active" data-domain="" onclick="filterMistakesByDomain('')">全部範疇</button>
+                                    <button class="filter-badge" data-domain="N" onclick="filterMistakesByDomain('N')">數與量</button>
+                                    <button class="filter-badge" data-domain="S" onclick="filterMistakesByDomain('S')">空間與形狀</button>
+                                    <button class="filter-badge" data-domain="R" onclick="filterMistakesByDomain('R')">關係</button>
+                                    <button class="filter-badge" data-domain="D" onclick="filterMistakesByDomain('D')">資料與不確定性</button>
+                                </div>
+                            </div>
+
+                            <div class="mistakes-grid" id="mistakes-grid-container">
+                                <!-- 動態載入錯題卡片 -->
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 視圖三：迷思挑戰擂台 (AI Practice Arena) -->
+                <section id="view-challenge" class="view-section">
+                    <div class="section-header">
+                        <h2>🎯 迷思挑戰擂台</h2>
+                        <p>針對你曾犯錯的數學迷思，讓 AI 老師幫你量身打造練習題。通過挑戰即可終結此迷思！</p>
+                    </div>
+
+                    <div class="challenge-container">
+                        <!-- 擂台主畫面 (選擇挑戰項目) -->
+                        <div id="challenge-select-mode" class="challenge-select-mode">
+                            <div class="card">
+                                <h3 class="arena-title"><i class="fa-solid fa-gamepad"></i> 選擇你要終結的迷思怪物</h3>
+                                <p class="arena-desc">以下是根據你的學習歷程整理的待克服迷思：</p>
+                                
+                                <div class="challenge-list" id="personal-challenge-list">
+                                    <!-- 動態加載錯題迷思 -->
+                                </div>
+
+                                <div class="curriculum-challenge-section">
+                                    <h4>🌱 自主技能演練 (依課綱自主挑戰)</h4>
+                                    <p class="arena-desc" style="margin-bottom: 15px;">如果你沒有歷史錯題，或想練習其他單元，可以從下方選擇課綱指標來讓 AI 出題：</p>
+                                    <div class="curriculum-select-row">
+                                        <select id="challenge-node-select" class="form-control" style="max-width: 400px;">
+                                            <!-- 動態填入該年級的指標 -->
+                                        </select>
+                                        <button class="btn btn-action" onclick="startCurriculumChallenge()">
+                                            開始自主挑戰
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 進行挑戰畫面 -->
+                        <div id="challenge-play-mode" class="challenge-play-mode" style="display: none;">
+                            <div class="challenge-grid">
+                                <!-- 左側：題目與答題區 -->
+                                <div class="card">
+                                    <div class="challenge-header">
+                                        <button class="btn-back" onclick="exitChallenge()"><i class="fa-solid fa-arrow-left"></i> 放棄挑戰</button>
+                                        <span class="badge badge-warning" id="challenge-node-badge">指標：N-5-4</span>
+                                    </div>
+
+                                    <div class="challenge-box">
+                                        <div class="monster-illustration">
+                                            <i class="fa-solid fa-ghost fa-bounce"></i>
+                                            <span class="monster-name" id="challenge-error-title">迷思怪：分母相加</span>
+                                        </div>
+                                        <div class="question-text-bubble">
+                                            <div style="font-weight: bold; font-size: 13px; color: var(--text-muted); margin-bottom: 4px;">挑戰題目：</div>
+                                            <p id="challenge-question-text" class="question-text">載入題目中...</p>
+                                        </div>
+                                    </div>
+
+                                    <!-- 提示按鈕 -->
+                                    <div class="hint-accordion">
+                                        <button class="hint-trigger" onclick="toggleHint()"><i class="fa-solid fa-circle-info"></i> 點我獲取解題提示 (Hint)</button>
+                                        <div class="hint-content" id="challenge-hint-text" style="display: none;">
+                                            這是一條提示...
+                                        </div>
+                                    </div>
+
+                                    <div class="form-group" style="margin-top: 25px;">
+                                        <label for="challenge-answer-input">你的最後答案與計算步驟：</label>
+                                        <textarea id="challenge-answer-input" class="form-control" rows="4" placeholder="請在此輸入你的最終答案以及解題想法或計算步驟 (例：我把分母通分成 6，1/2 = 3/6，1/3 = 2/6，3/6 + 2/6 = 5/6)"></textarea>
+                                    </div>
+
+                                    <button class="btn btn-action-large" onclick="submitChallengeAnswer()">
+                                        <i class="fa-solid fa-paper-plane"></i> 提交答案，接受批改！
+                                    </button>
+                                </div>
+
+                                <!-- 右側：批改結果 -->
+                                <div class="card" id="challenge-grading-card">
+                                    <div class="placeholder-state" id="grading-empty">
+                                        <i class="fa-solid fa-graduation-cap"></i>
+                                        <h3>等待提交作答</h3>
+                                        <p>請在左側認真思考並填寫你的答案，提交後 AI 老師會在這裡給予你星星評級喔！</p>
+                                    </div>
+
+                                    <!-- 批改載入中 -->
+                                    <div class="placeholder-state" id="grading-loading" style="display: none;">
+                                        <div class="spinner"></div>
+                                        <h3>AI 老師正在仔細查閱你的算式...</h3>
+                                        <p>正在檢查你是否已完全克服原本的迷思概念...</p>
+                                    </div>
+
+                                    <!-- 批改結果 -->
+                                    <div class="grading-result" id="grading-result-content" style="display: none;">
+                                        <div class="grading-status-header">
+                                            <div class="star-rating" id="grading-stars">
+                                                <!-- 星星圖標 -->
+                                            </div>
+                                            <h3 id="grading-verdict">挑戰成功！恭喜你</h3>
+                                            <div class="grading-score-badge" id="grading-score">90分</div>
+                                        </div>
+
+                                        <div class="report-block feedback-block">
+                                            <div class="block-title"><i class="fa-solid fa-comment-dots"></i> AI 老師的批改與回饋</div>
+                                            <div class="teacher-feedback-box" id="grading-feedback">
+                                                回饋文字...
+                                            </div>
+                                        </div>
+
+                                        <div style="display: flex; gap: 12px; margin-top: 30px;">
+                                            <button class="btn btn-primary" style="flex-grow: 1;" onclick="exitChallenge()">
+                                                <i class="fa-solid fa-rotate-left"></i> 回挑戰列表，挑戰下一關
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+            </main>
+        </div>
+    </div>
+
+    <!-- 彈出式錯題卡詳情抽屜面板 (Drawer) -->
+    <div class="drawer-overlay" id="drawer-overlay" onclick="closeDrawer(event)">
+        <div class="drawer-content" onclick="event.stopPropagation()">
+            <div class="drawer-header">
+                <h3 id="drawer-title">錯題詳細報告</h3>
+                <button class="close-drawer-btn" onclick="toggleDrawer(false)">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <div class="drawer-body" id="drawer-body-content">
+                <!-- 由 JS 動態渲染內容 -->
+            </div>
+            <div class="drawer-footer">
+                <button class="btn btn-secondary" onclick="toggleDrawer(false)">
+                    關閉視窗
+                </button>
+                <button class="btn btn-action" id="drawer-btn-challenge" onclick="startChallengeFromDrawer()">
+                    <i class="fa-solid fa-rocket"></i> 馬上發起挑戰
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 吐司通知容器 -->
+    <div class="toast-container" id="toast-container"></div>
+
+    <!-- 載入 Supabase JS SDK -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <!-- 學生網頁邏輯 -->
+    <script src="data.js"></script>
+    <script src="db.js"></script>
+    <script src="student.js"></script>
+</body>
+</html>

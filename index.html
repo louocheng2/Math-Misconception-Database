@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="zh-Hant" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>學生迷思概念資料庫</title>
+    <!-- FontAwesome 圖標庫 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- 主樣式表 -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <div class="app-container">
+        <!-- 側邊導覽列 -->
+        <aside class="sidebar">
+            <div class="brand-section">
+                <div class="brand-logo">
+                    <i class="fa-solid fa-calculator"></i>
+                </div>
+                <div class="brand-name">
+                    <h1>數學迷思資料庫</h1>
+                    <p>Taiwan 108 Curriculum</p>
+                </div>
+            </div>
+
+            <nav class="nav-menu">
+                <div class="nav-item active" id="nav-dashboard" onclick="switchView('dashboard')">
+                    <i class="fa-solid fa-chart-line"></i>
+                    <span>後台統計分析</span>
+                </div>
+                <div class="nav-item" id="nav-diagnostic" onclick="switchView('diagnostic')">
+                    <i class="fa-solid fa-wand-magic-sparkles"></i>
+                    <span>學生錯誤診斷</span>
+                </div>
+                <div class="nav-item" id="nav-records" onclick="switchView('records')">
+                    <i class="fa-solid fa-folder-open"></i>
+                    <span>歷程資料庫</span>
+                </div>
+                <div class="nav-item" id="nav-curriculum" onclick="switchView('curriculum')">
+                    <i class="fa-solid fa-book-open"></i>
+                    <span>課綱指標瀏覽</span>
+                </div>
+                <div class="nav-item" id="nav-settings" onclick="switchView('settings')">
+                    <i class="fa-solid fa-gears"></i>
+                    <span>系統與雲端設定</span>
+                </div>
+                <a href="student.html" class="nav-item" style="text-decoration: none; margin-top: 20px; border-top: 1px dashed var(--border-color); border-radius: 0; padding-top: 20px;">
+                    <i class="fa-solid fa-graduation-cap" style="color: #f59e0b;"></i>
+                    <span style="color: #f59e0b; font-weight: bold;">切換至學生學習端</span>
+                </a>
+            </nav>
+
+            <div class="sidebar-footer">
+                <button class="theme-toggle-btn" onclick="toggleTheme()">
+                    <span>切換深色模式</span>
+                    <i class="fa-solid fa-moon" id="theme-icon"></i>
+                </button>
+                <div class="cloud-status">
+                    <span class="status-dot" id="db-status-dot"></span>
+                    <span id="db-status-text">雲端資料庫已離線</span>
+                </div>
+            </div>
+        </aside>
+
+        <!-- 主內容區域 -->
+        <main class="main-content">
+
+            <!-- VIEW 1: 後台統計分析 (Dashboard) -->
+            <div id="view-dashboard" class="view-panel active">
+                <div class="page-header">
+                    <div>
+                        <h2>教師統計分析後台</h2>
+                        <p>即時分析班級學生數學學習熱點與高頻迷思概念</p>
+                    </div>
+                    <div>
+                        <button class="btn btn-secondary btn-sm" onclick="syncDataFromServer()">
+                            <i class="fa-solid fa-rotate"></i> 整理雲端同步
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 統計摘要區 -->
+                <div class="dashboard-stats">
+                    <div class="card stat-card">
+                        <div class="stat-icon primary">
+                            <i class="fa-solid fa-file-invoice"></i>
+                        </div>
+                        <div class="stat-info">
+                            <h4>總診斷人次</h4>
+                            <p id="stat-total-diagnoses">0</p>
+                        </div>
+                    </div>
+                    <div class="card stat-card">
+                        <div class="stat-icon danger">
+                            <i class="fa-solid fa-triangle-exclamation"></i>
+                        </div>
+                        <div class="stat-info">
+                            <h4>迷思錯誤率</h4>
+                            <p id="stat-error-rate">0%</p>
+                        </div>
+                    </div>
+                    <div class="card stat-card">
+                        <div class="stat-icon warning">
+                            <i class="fa-solid fa-graduation-cap"></i>
+                        </div>
+                        <div class="stat-info">
+                            <h4>最易錯年級</h4>
+                            <p id="stat-worst-grade">無資料</p>
+                        </div>
+                    </div>
+                    <div class="card stat-card">
+                        <div class="stat-icon success">
+                            <i class="fa-solid fa-crown"></i>
+                        </div>
+                        <div class="stat-info">
+                            <h4>最高頻迷思樣態</h4>
+                            <p id="stat-worst-misconception" style="font-size: 16px; margin-top: 8px;">無資料</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 圖表區 -->
+                <div class="dashboard-charts">
+                    <!-- 迷思排行榜 (SVG 繪製) -->
+                    <div class="card chart-card">
+                        <div class="chart-header">
+                            <h3>🔥 班級高頻迷思概念排行榜 (Top 5)</h3>
+                            <span class="upload-hint">依錯誤次數統計</span>
+                        </div>
+                        <div id="bar-chart-container" class="svg-chart-container">
+                            <div class="result-placeholder" style="width: 100%;">
+                                <i class="fa-solid fa-chart-bar"></i>
+                                <p>暫無診斷紀錄，無法生成排行榜</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 年級/領域 學習熱點熱力圖 -->
+                    <div class="card chart-card">
+                        <div class="chart-header">
+                            <h3>🛑 國小各年級數學領域錯誤熱點圖</h3>
+                            <span class="upload-hint">顏色越深犯錯頻率越高</span>
+                        </div>
+                        <div class="heatmap-grid" id="heatmap-grid-container">
+                            <!-- 由 JavaScript 動態渲染 6個年級 x 4個範疇 (N,S,R,D) -->
+                        </div>
+                        <div style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 15px; font-size: 11px; color: var(--text-muted);">
+                            <span>低風險 🟢</span>
+                            <span style="background-color: rgba(99, 102, 241, 0.2); padding: 0 4px; border-radius: 2px;">低頻</span>
+                            <span style="background-color: rgba(99, 102, 241, 0.5); padding: 0 4px; border-radius: 2px; color: white;">中頻</span>
+                            <span style="background-color: rgba(239, 68, 68, 0.8); padding: 0 4px; border-radius: 2px; color: white;">高頻 🔴</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- VIEW 2: 學生錯誤診斷 (Diagnostic Tool) -->
+            <div id="view-diagnostic" class="view-panel">
+                <div class="page-header">
+                    <div>
+                        <h2>學生計算過程診斷</h2>
+                        <p>輸入題目並上傳學生的手寫計算圖片，讓 Gemini AI 智慧分析錯誤類型與迷思概念</p>
+                    </div>
+                </div>
+
+                <!-- API Key 未設定警告橫幅 -->
+                <div id="api-warning-banner" class="api-warning-banner" style="display: none;">
+                    <div class="warning-icon"><i class="fa-solid fa-triangle-exclamation"></i></div>
+                    <div class="warning-text" style="flex-grow: 1;">
+                        <strong>提醒：</strong> 本機尚未設定 Google Gemini API Key。您可以在此貼入金鑰，或切換至免金鑰的本地 AI 引擎：
+                    </div>
+                    <div class="quick-api-input" style="gap: 8px; flex-wrap: wrap;">
+                        <input type="password" id="banner-api-key" placeholder="貼上 Groq API Key" style="max-width: 180px;">
+                        <button onclick="saveQuickApiKey()">儲存金鑰</button>
+                        <button onclick="switchToLocalEngine('local-simulation')" style="background-color: var(--success); color: white;">使用本地模擬 AI (免金鑰)</button>
+                        <button onclick="switchToLocalEngine('local-ollama')" style="background-color: var(--secondary); color: white;">使用本地 Ollama</button>
+                    </div>
+                </div>
+
+                <div class="split-layout">
+                    <!-- 左側：輸入與上傳區 -->
+                    <div class="card">
+                        <h3 style="font-size: 18px; margin-bottom: 20px; font-weight: 700;">上傳診斷資料</h3>
+                        
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label" for="diag-student-name">學生姓名 <span style="color:var(--danger)">*</span></label>
+                                <input type="text" id="diag-student-name" class="form-control" placeholder="輸入姓名 (例如：張小明)">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label" for="diag-grade">年級 <span style="color:var(--danger)">*</span></label>
+                                <select id="diag-grade" class="form-control">
+                                    <option value="1">一年級</option>
+                                    <option value="2">二年級</option>
+                                    <option value="3">三年級</option>
+                                    <option value="4">四年級</option>
+                                    <option value="5" selected>五年級</option>
+                                    <option value="6">六年級</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label" for="diag-question">數學題目內容 <span style="font-weight: normal; font-size: 12px; color: var(--text-muted);">（若上傳的圖片中已包含題目內容，此欄可不填）</span></label>
+                            <textarea id="diag-question" class="form-control" rows="2" placeholder="請輸入完整的數學問題（若已上傳合併題目與算式的照片，此欄可留空）"></textarea>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">計算過程圖片上傳 (支援手寫算式分析) <span style="color:var(--danger)">*</span></label>
+                            <div class="upload-container" id="image-upload-zone" onclick="triggerFileInput()">
+                                <div class="upload-icon">
+                                    <i class="fa-solid fa-camera"></i>
+                                </div>
+                                <div class="upload-text">點擊此處 <span>拍照</span> 或 <span>上傳計算過程照片</span></div>
+                                <div class="upload-hint">支援 JPG、PNG 圖片，檔案小於 5MB</div>
+                                <input type="file" id="diag-image-file" style="display: none;" accept="image/*" onchange="handleFileSelect(event)">
+                            </div>
+                            <div class="preview-container" id="image-preview-container">
+                                <img src="" id="image-preview" class="preview-image" alt="計算過程預覽">
+                                <button class="remove-preview-btn" onclick="removeImagePreview()"><i class="fa-solid fa-xmark"></i></button>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label" for="diag-calculation-text">計算過程文字 (選填 - 手打或 AI OCR 自動填入)</label>
+                            <textarea id="diag-calculation-text" class="form-control" rows="2" placeholder="若無圖片，亦可直接在此輸入學生的計算步驟 (例如：1/2 + 1/3 = (1+1)/(2+3) = 2/5)"></textarea>
+                        </div>
+
+                        <div style="display: flex; gap: 12px; margin-top: 30px;">
+                            <button class="btn btn-primary" id="btn-submit-diagnosis" onclick="runDiagnosis()" style="flex-grow: 1;">
+                                <i class="fa-solid fa-brain"></i> 開始 AI 智慧診斷
+                            </button>
+                            <button class="btn btn-secondary" onclick="clearDiagnosisForm()">
+                                重設
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- 右側：即時診斷結果 -->
+                    <div class="card" id="diagnostic-result-panel" style="min-height: 500px;">
+                        <div class="result-placeholder" id="diag-result-empty">
+                            <i class="fa-solid fa-clipboard-question"></i>
+                            <h3>等待診斷輸入</h3>
+                            <p>在左側輸入學生計算資料並點選「開始 AI 智慧診斷」，診斷報告將呈現在此。</p>
+                        </div>
+
+                        <!-- 讀取狀態 -->
+                        <div class="result-placeholder" id="diag-result-loading" style="display: none;">
+                            <div class="spinner spinner-dark" style="width: 50px; height: 50px; border-width: 5px; margin-bottom: 20px;"></div>
+                            <h3>AI 正在解析計算過程與手寫原圖...</h3>
+                            <p id="loading-tip">正在提取算式並對比 108 課綱指標...</p>
+                        </div>
+
+                        <!-- 實際報告面板 -->
+                        <div class="diagnostic-result-card" id="diag-result-content" style="display: none;">
+                            <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px solid var(--border-color); padding-bottom: 16px;">
+                                <div>
+                                    <h3 style="font-size: 20px; font-weight: 700;" id="result-student-title">學生：張小明</h3>
+                                    <p class="upload-hint" id="result-date-title">診斷時間：2026/06/13</p>
+                                </div>
+                                <div id="result-correct-badge">
+                                    <span class="badge badge-danger"><i class="fa-solid fa-circle-xmark"></i> 計算錯誤</span>
+                                </div>
+                            </div>
+
+                            <div class="result-badge-row">
+                                <span class="badge badge-info" id="result-grade-badge">五年級</span>
+                                <span class="badge badge-primary" id="result-node-badge" style="background-color:rgba(99, 102, 241, 0.1); color:var(--primary);">N-5-4 異分母加減</span>
+                            </div>
+
+                            <div class="form-group">
+                                <div class="result-section-title">對應課綱指標說明</div>
+                                <p id="result-node-desc" style="font-size: 14px; color: var(--text-muted); padding-left: 4px;">利用通分進行異分母分數的加法與減法計算。</p>
+                            </div>
+
+                            <div class="form-group">
+                                <div class="result-section-title">定位數學迷思概念樣態</div>
+                                <div style="background-color: rgba(239, 68, 68, 0.04); border: 1px solid rgba(239, 68, 68, 0.15); border-radius: var(--radius-sm); padding: 14px;">
+                                    <h4 style="font-size: 15px; color: var(--danger); font-weight: 700; display: flex; align-items: center; gap: 8px;">
+                                        <i class="fa-solid fa-triangle-exclamation"></i>
+                                        <span id="result-error-name">分子分母直接相加</span>
+                                    </h4>
+                                    <p id="result-error-desc" style="font-size: 13px; color: var(--text-muted); margin-top: 6px;">在進行分數加減時，直接將分子加分子、分母加分母，未進行通分。</p>
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <div class="result-section-title">手寫算式步驟診斷歷程</div>
+                                <ul class="step-list" id="result-steps-list">
+                                    <!-- 動態生成步驟 -->
+                                </ul>
+                            </div>
+
+                            <div class="form-group">
+                                <div class="result-section-title">💡 針對性補救教學建議</div>
+                                <div class="remediation-box">
+                                    <p id="result-remediation" style="font-size: 14px; line-height: 1.6;">利用圖形表徵（如圓餅圖或方格紙）引導學生理解分數代表等分單位的概念。說明 1/2 與 1/3 代表不同大小的切片，不能直接將個數相加...</p>
+                                </div>
+                            </div>
+
+                            <div style="display: flex; gap: 12px; justify-content: flex-end; margin-top: 15px;">
+                                <button class="btn btn-secondary btn-sm" onclick="printCurrentReport()">
+                                    <i class="fa-solid fa-print"></i> 列印診斷報告
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- VIEW 3: 歷程資料庫 (Records) -->
+            <div id="view-records" class="view-panel">
+                <div class="page-header">
+                    <div>
+                        <h2>歷程診斷資料庫</h2>
+                        <p>檢視、篩選並管理所有學生的歷史迷思概念紀錄</p>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <!-- 篩選列 -->
+                    <div class="filter-bar">
+                        <div class="search-input-wrapper">
+                            <i class="fa-solid fa-magnifying-glass"></i>
+                            <input type="text" id="filter-search-name" class="form-control" placeholder="搜尋學生姓名..." oninput="applyFilters()">
+                        </div>
+
+                        <select id="filter-grade" class="filter-select" onchange="applyFilters()">
+                            <option value="">所有年級</option>
+                            <option value="1">一年級</option>
+                            <option value="2">二年級</option>
+                            <option value="3">三年級</option>
+                            <option value="4">四年級</option>
+                            <option value="5">五年級</option>
+                            <option value="6">六年級</option>
+                        </select>
+
+                        <select id="filter-domain" class="filter-select" onchange="applyFilters()">
+                            <option value="">所有數學範疇</option>
+                            <option value="N">數與量</option>
+                            <option value="S">空間與形狀</option>
+                            <option value="R">關係</option>
+                            <option value="D">資料與不確定性</option>
+                        </select>
+
+                        <select id="filter-status" class="filter-select" onchange="applyFilters()">
+                            <option value="">所有診斷結果</option>
+                            <option value="incorrect">有迷思概念 (答錯)</option>
+                            <option value="correct">完全正確</option>
+                        </select>
+
+                        <button class="btn btn-secondary" style="padding: 10px 16px;" onclick="resetFilters()">
+                            清除篩選
+                        </button>
+                    </div>
+
+                    <!-- 資料表格 -->
+                    <div class="table-container">
+                        <table class="records-table">
+                            <thead>
+                                <tr>
+                                    <th>學生</th>
+                                    <th>年級</th>
+                                    <th>對應課綱指標</th>
+                                    <th>診斷迷思樣態</th>
+                                    <th>是否正確</th>
+                                    <th>診斷日期</th>
+                                    <th style="text-align: right;">操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="records-table-body">
+                                <!-- 由 JS 動態繪製 -->
+                                <tr>
+                                    <td colspan="7" style="text-align: center; color: var(--text-muted); padding: 40px 0;">
+                                        <i class="fa-solid fa-spinner fa-spin" style="margin-right: 8px;"></i> 載入資料庫中...
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- VIEW 4: 課綱指標瀏覽 (Curriculum Browser) -->
+            <div id="view-curriculum" class="view-panel">
+                <div class="page-header">
+                    <div>
+                        <h2>108 課綱國小數學指標瀏覽</h2>
+                        <p>依年級查閱臺灣教育部國小數學學習內容 (N, S, R, D) 與預設之常見學生迷思樣態</p>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <!-- 年級切換 Tabs -->
+                    <div class="grade-tabs">
+                        <div class="grade-tab active" data-grade="1" onclick="switchGradeTab(1)">一年級</div>
+                        <div class="grade-tab" data-grade="2" onclick="switchGradeTab(2)">二年級</div>
+                        <div class="grade-tab" data-grade="3" onclick="switchGradeTab(3)">三年級</div>
+                        <div class="grade-tab" data-grade="4" onclick="switchGradeTab(4)">四年級</div>
+                        <div class="grade-tab" data-grade="5" onclick="switchGradeTab(5)">五年級</div>
+                        <div class="grade-tab" data-grade="6" onclick="switchGradeTab(6)">六年級</div>
+                    </div>
+
+                    <!-- 課綱卡片清單 -->
+                    <div class="curriculum-list" id="curriculum-cards-container">
+                        <!-- 由 JS 動態繪製 -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- VIEW 5: 系統與雲端設定 (Settings) -->
+            <div id="view-settings" class="view-panel">
+                <div class="page-header">
+                    <div>
+                        <h2>系統設定與金鑰配置</h2>
+                        <p>設定您的 Groq API 與 Supabase 雲端資料庫連線</p>
+                    </div>
+                </div>
+
+                <div class="settings-grid">
+                    <!-- 區塊一：Groq API 配置 -->
+                    <div class="card">
+                        <div class="settings-section-title">
+                            <i class="fa-solid fa-key" style="color: var(--primary); margin-right: 8px;"></i>
+                            Groq API 設定
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label" for="setting-groq-key">Groq API Key <span style="color:var(--danger)">*</span></label>
+                            <input type="password" id="setting-groq-key" class="form-control" placeholder="輸入以 Groq Console 獲取的 API_KEY">
+                            <p class="upload-hint" style="margin-top: 6px;">⚠️ 備註：此金鑰僅會加密儲存於您本機瀏覽器的 localStorage 中，不會流向其他伺服器，安全無虞。</p>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label" for="setting-groq-model">預設診斷模型 / 引擎</label>
+                                <select id="setting-groq-model" class="form-control" onchange="toggleApiKeyRequired()">
+                                    <option value="llama-3.3-70b-versatile" selected>Groq LLaMA3 70B (推薦：雲端大模型)</option>
+                                    <option value="llama-3.1-8b-instant">Groq LLaMA3 8B (雲端極速模型)</option>
+                                    <option value="mixtral-8x7b-32768">Groq Mixtral 8x7B (雲端多模專家)</option>
+                                    <option value="local-simulation">本地模擬 AI 引擎 (免金鑰，100% 離線運作)</option>
+                                    <option value="local-ollama">本地 Ollama 服務 (免金鑰，需開啟 Ollama)</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="form-group" id="ollama-model-group" style="display: none;">
+                            <label class="form-label" for="setting-ollama-model">Ollama 模型名稱</label>
+                            <input type="text" id="setting-ollama-model" class="form-control" value="qwen2.5:3b" placeholder="例如: qwen2.5:3b, qwen2.5, llama3 等">
+                            <p class="upload-hint" style="margin-top: 4px;">請確保您的 Ollama 服務已啟動，且已下載此模型。需在啟動時設定環境變數 OLLAMA_ORIGINS="*" 以防 CORS 阻擋。</p>
+                        </div>
+
+                        <button class="btn btn-primary" onclick="saveGroqSettings()">
+                            儲存設定
+                        </button>
+                    </div>
+
+                    <!-- 區塊二：Supabase 雲端同步配置 -->
+                    <div class="card">
+                        <div class="settings-section-title">
+                            <i class="fa-solid fa-cloud" style="color: var(--secondary); margin-right: 8px;"></i>
+                            Supabase 雲端同步設定
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label" for="setting-supabase-url">Supabase Project URL</label>
+                            <input type="text" id="setting-supabase-url" class="form-control" placeholder="https://your-project.supabase.co">
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label" for="setting-supabase-key">Supabase Anon Key (Public)</label>
+                            <input type="password" id="setting-supabase-key" class="form-control" placeholder="Public anon-key for your database">
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label" for="setting-teacher-id">教師識別識別碼 (Teacher ID)</label>
+                                <input type="text" id="setting-teacher-id" class="form-control" value="admin">
+                                <p class="upload-hint" style="margin-top: 4px;">用以區分不同教師帳號上傳的資料。</p>
+                            </div>
+                        </div>
+
+                        <div style="display: flex; gap: 12px; margin-top: 15px; flex-wrap: wrap;">
+                            <button class="btn btn-primary" onclick="saveSupabaseSettings()">
+                                儲存雲端設定
+                            </button>
+                            <button class="btn btn-secondary" onclick="testSupabaseConnection()">
+                                測試資料庫連線
+                            </button>
+                            <button class="btn btn-secondary" onclick="syncOfflineRecords()">
+                                <i class="fa-solid fa-cloud-arrow-up"></i> 同步離線資料
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- 區塊三：資料備份與匯出區 -->
+                    <div class="card">
+                        <div class="settings-section-title">
+                            <i class="fa-solid fa-database" style="color: var(--success); margin-right: 8px;"></i>
+                            本地資料備份與管理 (匯出/匯入)
+                        </div>
+
+                        <p style="font-size: 14px; color: var(--text-muted); margin-bottom: 20px;">
+                            您可以將本地儲存的所有學生診斷歷程資料匯出為 JSON 備份檔，以利在不同裝置間分享，或是重新匯入。
+                        </p>
+
+                        <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+                            <button class="btn btn-secondary" onclick="exportDatabaseAsJSON()">
+                                <i class="fa-solid fa-download"></i> 匯出 JSON 資料庫
+                            </button>
+                            <button class="btn btn-secondary" onclick="triggerJSONImport()">
+                                <i class="fa-solid fa-upload"></i> 匯入 JSON 資料庫
+                            </button>
+                            <input type="file" id="import-json-file" style="display: none;" accept=".json" onchange="importDatabaseFromJSON(event)">
+                        </div>
+
+                        <div style="margin-top: 40px; border-top: 1px solid var(--border-color); padding-top: 20px;">
+                            <h4 style="color: var(--danger); font-size: 15px; font-weight: 700; margin-bottom: 8px;">危險操作區</h4>
+                            <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 15px;">警告：清空將會刪除您當前教師 ID 帳號在雲端及本地端的所有診斷紀錄，刪除後將無法還原！</p>
+                            <button class="btn btn-danger btn-sm" onclick="dangerClearAllRecords()">
+                                <i class="fa-solid fa-trash-can"></i> 清空資料庫所有診斷紀錄
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <!-- 彈出式詳情抽屜面板 (Drawer) -->
+    <div class="drawer-overlay" id="drawer-overlay" onclick="closeDrawer(event)">
+        <div class="drawer-content" onclick="event.stopPropagation()">
+            <div class="drawer-header">
+                <h3 id="drawer-title">診斷詳情報告</h3>
+                <button class="close-drawer-btn" onclick="toggleDrawer(false)">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <div class="drawer-body" id="drawer-body-content">
+                <!-- 由 JS 動態渲染內容 -->
+            </div>
+            <div class="drawer-footer">
+                <button class="btn btn-secondary" onclick="printDrawerReport()">
+                    <i class="fa-solid fa-print"></i> 列印報告
+                </button>
+                <button class="btn btn-danger" id="drawer-btn-delete" onclick="deleteDrawerRecord()">
+                    <i class="fa-solid fa-trash"></i> 刪除紀錄
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 可列印的報告模板 (Print Container) -->
+    <div class="print-container" id="print-report-container">
+        <div class="print-card">
+            <div class="print-header">
+                <div>
+                    <div class="print-title">學生數學迷思概念診斷報告</div>
+                    <div class="print-meta" id="print-meta-info">學生：張小明 | 年級：五年級 | 日期：2026/06/13</div>
+                </div>
+                <div style="font-size: 18px; font-weight: bold; border: 2px solid red; padding: 4px 8px; color: red;">
+                    診斷：有迷思概念
+                </div>
+            </div>
+
+            <div class="print-section">
+                <div class="print-section-title">一、 診斷數學題目</div>
+                <p id="print-question-text" style="font-size: 15px;">1/2 + 1/3 = ?</p>
+            </div>
+
+            <div class="print-section" id="print-image-section">
+                <div class="print-section-title">二、 學生計算過程原圖</div>
+                <img src="" id="print-calc-img" class="print-img" alt="手寫過程">
+            </div>
+
+            <div class="print-section">
+                <div class="print-section-title">三、 計算過程文字</div>
+                <p id="print-calc-text" style="font-size: 14px; font-family: monospace; white-space: pre-wrap;">1/2 + 1/3 = 2/5</p>
+            </div>
+
+            <div class="print-section">
+                <div class="print-section-title">四、 對應 108 課綱指標</div>
+                <p><strong id="print-node-code">N-5-4</strong> - <span id="print-node-title">異分母分數的加減</span></p>
+                <p id="print-node-desc" style="font-size: 13px; color: #555; margin-top: 4px;">利用通分進行異分母分數的加法與減法計算。</p>
+            </div>
+
+            <div class="print-section">
+                <div class="print-section-title">五、 診斷迷思概念樣態</div>
+                <p><strong id="print-error-name" style="color: red;">分子分母直接相加</strong></p>
+                <p id="print-error-desc" style="font-size: 13px; color: #555; margin-top: 4px;">在進行分數加減時，直接將分子加分子、分母加分母，未通分。</p>
+            </div>
+
+            <div class="print-section">
+                <div class="print-section-title">六、 計算步驟分析報告</div>
+                <ul class="step-list" id="print-steps-list" style="padding-left: 0;">
+                    <!-- 動態步驟 -->
+                </ul>
+            </div>
+
+            <div class="print-section">
+                <div class="print-section-title">七、 補救教學與個別指導建議</div>
+                <div style="border: 1px solid #ccc; padding: 15px; border-radius: 8px; font-size: 14px; line-height: 1.5;" id="print-remediation-text">
+                    補救建議說明...
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 吐司通知容器 -->
+    <div class="toast-container" id="toast-container"></div>
+
+    <!-- 載入 Supabase JS SDK (自帶 Client 工廠) -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <!-- 應用程式邏輯檔案 -->
+    <script src="data.js"></script>
+    <script src="db.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
