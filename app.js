@@ -1005,8 +1005,15 @@ function toggleApiKeyRequired() {
         if (labelSpan) labelSpan.style.display = 'none';
         keyInput.removeAttribute('required');
     } else {
-        if (labelSpan) labelSpan.style.display = 'inline';
-        keyInput.setAttribute('required', 'required');
+        if (typeof DEFAULT_GROQ_KEY !== 'undefined' && DEFAULT_GROQ_KEY !== '') {
+            if (labelSpan) labelSpan.style.display = 'none';
+            keyInput.removeAttribute('required');
+            keyInput.placeholder = '已載入系統預設金鑰 (可在此輸入以覆蓋)';
+        } else {
+            if (labelSpan) labelSpan.style.display = 'inline';
+            keyInput.setAttribute('required', 'required');
+            keyInput.placeholder = '輸入以 Groq Console 獲取的 API_KEY';
+        }
     }
     
     if (model === 'local-ollama') {
@@ -1027,7 +1034,7 @@ function checkApiKeySetup() {
     let model = localStorage.getItem('MATH_MISCONCEPTION_GROQ_MODEL') || 'llama-3.3-70b-versatile';
     if (model === 'llama3-70b-8192' || model === 'gemini-1.5-flash' || model === 'gemini-2.0-flash' || model === 'gemini-1.5-pro') model = 'llama-3.3-70b-versatile';
     if (model === 'llama3-8b-8192') model = 'llama-3.1-8b-instant';
-    const key = localStorage.getItem('MATH_MISCONCEPTION_GROQ_KEY');
+    const key = localStorage.getItem('MATH_MISCONCEPTION_GROQ_KEY') || (typeof DEFAULT_GROQ_KEY !== 'undefined' ? DEFAULT_GROQ_KEY : '');
     const banner = document.getElementById('api-warning-banner');
     
     if (!banner) return;
