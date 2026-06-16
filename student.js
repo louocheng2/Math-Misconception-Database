@@ -300,24 +300,52 @@ function processFile(file) {
         return;
     }
     
-    if (file.size > 5 * 1024 * 1024) {
-        showToast('照片太大了，請上傳小於 5MB 的照片喔！', 'danger');
+    if (file.size > 20 * 1024 * 1024) {
+        showToast('照片太大了，請上傳小於 20MB 的照片喔！', 'danger');
         return;
     }
-
-    AppState.imageUploadMimeType = file.type;
     
     const reader = new FileReader();
     reader.onload = (e) => {
-        const base64Data = e.target.result;
-        AppState.imageUploadBase64 = base64Data.split(',')[1];
-        
-        const previewImg = document.getElementById('image-preview');
-        const previewContainer = document.getElementById('image-preview-container');
-        previewImg.src = base64Data;
-        previewContainer.style.display = 'block';
-        document.getElementById('image-upload-zone').style.display = 'none';
-        showToast('照片讀取成功！');
+        const img = new Image();
+        img.onload = () => {
+            // 設定最大寬度與高度為 1024px，維持比例縮放，避免 token 數暴增
+            const maxDim = 1024;
+            let width = img.width;
+            let height = img.height;
+
+            if (width > maxDim || height > maxDim) {
+                if (width > height) {
+                    height = Math.round((height * maxDim) / width);
+                    width = maxDim;
+                } else {
+                    width = Math.round((width * maxDim) / height);
+                    height = maxDim;
+                }
+            }
+
+            const canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, width, height);
+
+            // 轉存為 JPEG 格式以節省空間與 Token (品質設定為 0.85)
+            const mimeType = 'image/jpeg';
+            const base64Data = canvas.toDataURL(mimeType, 0.85);
+
+            AppState.imageUploadMimeType = mimeType;
+            AppState.imageUploadBase64 = base64Data.split(',')[1]; // 去除 data:image/jpeg;base64, 前綴
+            
+            // 顯示預覽
+            const previewImg = document.getElementById('image-preview');
+            const previewContainer = document.getElementById('image-preview-container');
+            previewImg.src = base64Data;
+            previewContainer.style.display = 'block';
+            document.getElementById('image-upload-zone').style.display = 'none';
+            showToast('照片讀取並自動優化成功！');
+        };
+        img.src = e.target.result;
     };
     reader.readAsDataURL(file);
 }

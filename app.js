@@ -256,25 +256,52 @@ function processFile(file) {
         return;
     }
     
-    if (file.size > 5 * 1024 * 1024) {
-        showToast('檔案大小不能超過 5MB！', 'danger');
+    if (file.size > 20 * 1024 * 1024) {
+        showToast('檔案大小不能超過 20MB！', 'danger');
         return;
     }
-
-    AppState.imageUploadMimeType = file.type;
     
     const reader = new FileReader();
     reader.onload = (e) => {
-        const base64Data = e.target.result;
-        AppState.imageUploadBase64 = base64Data.split(',')[1]; // 去除 data:image/png;base64, 前綴
-        
-        // 顯示預覽
-        const previewImg = document.getElementById('image-preview');
-        const previewContainer = document.getElementById('image-preview-container');
-        previewImg.src = base64Data;
-        previewContainer.style.display = 'block';
-        document.getElementById('image-upload-zone').style.display = 'none';
-        showToast('圖片載入成功！');
+        const img = new Image();
+        img.onload = () => {
+            // 設定最大寬度與高度為 1024px，維持比例縮放，避免 token 數暴增
+            const maxDim = 1024;
+            let width = img.width;
+            let height = img.height;
+
+            if (width > maxDim || height > maxDim) {
+                if (width > height) {
+                    height = Math.round((height * maxDim) / width);
+                    width = maxDim;
+                } else {
+                    width = Math.round((width * maxDim) / height);
+                    height = maxDim;
+                }
+            }
+
+            const canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, width, height);
+
+            // 轉存為 JPEG 格式以節省空間與 Token (品質設定為 0.85)
+            const mimeType = 'image/jpeg';
+            const base64Data = canvas.toDataURL(mimeType, 0.85);
+
+            AppState.imageUploadMimeType = mimeType;
+            AppState.imageUploadBase64 = base64Data.split(',')[1]; // 去除 data:image/jpeg;base64, 前綴
+            
+            // 顯示預覽
+            const previewImg = document.getElementById('image-preview');
+            const previewContainer = document.getElementById('image-preview-container');
+            previewImg.src = base64Data;
+            previewContainer.style.display = 'block';
+            document.getElementById('image-upload-zone').style.display = 'none';
+            showToast('圖片載入並自動優化成功！');
+        };
+        img.src = e.target.result;
     };
     reader.readAsDataURL(file);
 }
@@ -366,14 +393,14 @@ async function runDiagnosis() {
         } else if (isLocalOllama) {
             parsedResult = await callLocalOllama(studentName, grade, question, calcText, false);
         } else {
-            // 提供所有低年級與本年級的課綱大綱，讓 AI 能夠跨年級抓出基礎觀念錯誤
+            // 載入當前年級與前一個年級的課綱，限制範圍以防止 Token 數過大超出 Groq 6000 TPM 限制
             const targetGrade = parseInt(grade);
-            const allNodes = DataService.getAllNodes().filter(n => n.grade <= targetGrade);
+            const allNodes = DataService.getAllNodes().filter(n => n.grade === targetGrade || n.grade === targetGrade - 1);
             const curriculumContext = allNodes.map(n => {
-                // 為了節省 AI 處理量 (Token)，只針對相近的兩個年級提供詳細迷思清單，其餘年級只提供指標大綱
-                if (n.grade >= targetGrade - 1) {
-                    const presets = n.preset_misconceptions.map(m => ` - ${m.name}: ${m.description}`).join('\n');
-                    return `指標 [${n.code}] ${n.title}\n描述：${n.description}\n常見迷思樣態：\n${presets}`;
+                // 格式精簡化，僅對當前年級提供迷思樣態名稱，不提供長描述，以節省 Token
+                if (n.grade === targetGrade) {
+                    const presetNames = n.preset_misconceptions.map(m => m.name).join('、');
+                    return `指標 [${n.code}] ${n.title}\n描述：${n.description}${presetNames ? `\n常見迷思樣態：${presetNames}` : ''}`;
                 } else {
                     return `指標 [${n.code}] ${n.title}\n描述：${n.description}`;
                 }
