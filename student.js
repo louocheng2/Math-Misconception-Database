@@ -309,8 +309,8 @@ function processFile(file) {
     reader.onload = (e) => {
         const img = new Image();
         img.onload = () => {
-            // 設定最大寬度與高度為 1024px，維持比例縮放，避免 token 數暴增
-            const maxDim = 1024;
+            // 設定最大寬度與高度為 512px，維持比例縮放，大幅減少 vision 模型 token 消耗
+            const maxDim = 512;
             let width = img.width;
             let height = img.height;
 
@@ -436,6 +436,12 @@ async function runStudentDiagnosis() {
                 }
             }).join('\n\n');
 
+            // 如果有上傳圖片，為了避免 Vision 模型超量消耗 Token 導致 Quota Exceeded，直接省略課綱 Context
+            let finalCurriculumContext = curriculumContext;
+            if (AppState.imageUploadBase64) {
+                finalCurriculumContext = "【為節省圖片分析 Token，已省略課綱細節。請直接依據您的專業知識判斷學生的錯誤樣態。】";
+            }
+
             const prompt = `你是一位臺灣國小數學輔導教師。說話語氣溫和、親切、富有同理心與童趣，常用「喔」、「囉」、「呀」、「哇」、「哈」等童趣語氣，多用正面鼓勵，帶領學生找出自己計算的盲點。
 請診斷以下學生的數學題目與計算過程。
 
@@ -446,7 +452,7 @@ async function runStudentDiagnosis() {
 ${calcText ? `- 算式過程：${calcText}` : '- 算式過程：請參閱隨附之手寫算式圖片（圖片中可能合併包含題目與計算過程）。'}
 
 【當前年級 (${AppState.grade} 年級) 的臺灣 108 課綱數學學習內容與常見迷思樣態參考表】：
-${curriculumContext}
+${finalCurriculumContext}
 
 【診斷分析指南】：
 1. 仔細辨識題目與計算過程。
