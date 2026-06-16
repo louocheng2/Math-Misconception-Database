@@ -128,7 +128,7 @@ window.verifyTeacherAccess = function(event) {
     if (pwd === "admin") {
         window.location.href = "index.html";
     } else if (pwd !== null) {
-        alert("密碼錯誤，請重新輸入！\n(提示：預設密碼為 admin)");
+        alert("密碼錯誤，請重新輸入！");
     }
 }
 
