@@ -331,10 +331,9 @@ async function runDiagnosis() {
         return;
     }
     
-    let apiKey = '';
     if (!isLocalSim && !isLocalOllama) {
-        apiKey = localStorage.getItem('MATH_MISCONCEPTION_GROQ_KEY') || (typeof DEFAULT_GROQ_KEY !== 'undefined' ? DEFAULT_GROQ_KEY : '');
-        if (!apiKey) {
+        const keysList = GroqKeyManager.getKeys();
+        if (keysList.length === 0) {
             showToast('請先至「系統設定」設定您的 Groq API Key！', 'danger');
             switchView('settings');
             return;
@@ -481,15 +480,69 @@ JSON 格式要求：
                 temperature: 0.5
             };
 
-            const response = await fetch(url, {
-                method: 'POST',
-                headers: headers,
-                body: JSON.stringify(payload)
-            });
-
-            if (!response.ok) {
-                const errJson = await response.json().catch(()=>({}));
-                throw new Error(errJson.error?.message || `HTTP ${response.status}`);
+            // Rotation retry loop
+            let response;
+            let success = false;
+            let lastError = null;
+            const keysList = GroqKeyManager.getKeys();
+            const maxAttempts = Math.max(1, keysList.length);
+            
+            for (let attempt = 0; attempt < maxAttempts; attempt++) {
+                const currentKey = GroqKeyManager.getKey();
+                if (!currentKey) {
+                    throw new Error('未設定 Groq API Key');
+                }
+                
+                try {
+                    const headers = { 
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${currentKey}`
+                    };
+                    
+                    response = await fetch(url, {
+                        method: 'POST',
+                        headers: headers,
+                        body: JSON.stringify(payload)
+                    });
+                    
+                    if (response.ok) {
+                        success = true;
+                        break;
+                    }
+                    
+                    const errJson = await response.json().catch(() => ({}));
+                    const errMsg = errJson.error?.message || `HTTP ${response.status}`;
+                    
+                    const isQuota = response.status === 429 || 
+                                    errMsg.toLowerCase().includes('quota') || 
+                                    errMsg.toLowerCase().includes('rate limit') ||
+                                    errMsg.toLowerCase().includes('exceeded');
+                                    
+                    if (isQuota && keysList.length > 1) {
+                        console.warn(`Teacher Diag: Key exhausted. Rotating to next key.`);
+                        showToast(`金鑰額度超出，自動切換至下一把備用金鑰...`, 'warning');
+                        GroqKeyManager.rotateKey();
+                        updateGroqStatusUI();
+                        continue;
+                    } else {
+                        throw new Error(errMsg);
+                    }
+                } catch (e) {
+                    lastError = e;
+                    if (keysList.length > 1 && attempt < maxAttempts - 1) {
+                        const errText = e.message || '';
+                        if (errText.toLowerCase().includes('quota') || errText.toLowerCase().includes('rate limit') || errText.toLowerCase().includes('429') || errText.toLowerCase().includes('exceeded')) {
+                            GroqKeyManager.rotateKey();
+                            updateGroqStatusUI();
+                            continue;
+                        }
+                    }
+                    throw e;
+                }
+            }
+            
+            if (!success) {
+                throw lastError || new Error('所有金鑰均不可用');
             }
             
             const resultData = await response.json();
@@ -1051,17 +1104,22 @@ function checkApiKeySetup() {
     let model = localStorage.getItem('MATH_MISCONCEPTION_GROQ_MODEL') || 'llama-3.3-70b-versatile';
     if (model === 'llama3-70b-8192' || model === 'gemini-1.5-flash' || model === 'gemini-2.0-flash' || model === 'gemini-1.5-pro') model = 'llama-3.3-70b-versatile';
     if (model === 'llama3-8b-8192') model = 'llama-3.1-8b-instant';
-    const key = localStorage.getItem('MATH_MISCONCEPTION_GROQ_KEY') || (typeof DEFAULT_GROQ_KEY !== 'undefined' ? DEFAULT_GROQ_KEY : '');
+    
+    const keys = typeof GroqKeyManager !== 'undefined' ? GroqKeyManager.getKeys() : [];
     const banner = document.getElementById('api-warning-banner');
     
     if (!banner) return;
     
     if (model === 'local-simulation' || model === 'local-ollama') {
         banner.style.display = 'none';
-    } else if (!key) {
+    } else if (keys.length === 0) {
         banner.style.display = 'flex';
     } else {
         banner.style.display = 'none';
+    }
+    
+    if (typeof updateGroqStatusUI === 'function') {
+        updateGroqStatusUI();
     }
 }
 
@@ -1433,5 +1491,20 @@ JSON 格式要求：
     } catch (err) {
         console.error(err);
         throw new Error(`連線本地 Ollama 失敗。請確認 Ollama 已啟動 (http://localhost:11434)，且已下載模型 "${ollamaModelName}"。此外，需於 Ollama 啟動時設定環境變數 OLLAMA_ORIGINS="*" 以防 CORS 跨網域阻擋。`);
+    }
+}
+
+// 更新 UI 上 Groq API 金鑰的狀態指示
+function updateGroqStatusUI() {
+    const dot = document.getElementById('groq-status-dot');
+    const text = document.getElementById('groq-status-text');
+    if (dot && text && typeof GroqKeyManager !== 'undefined') {
+        const statusText = GroqKeyManager.getStatusText();
+        text.textContent = statusText;
+        if (statusText === '未設定金鑰') {
+            dot.style.backgroundColor = 'var(--danger)';
+        } else {
+            dot.style.backgroundColor = 'var(--success)';
+        }
     }
 }

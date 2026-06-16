@@ -1,0 +1,185 @@
+﻿        listContainer.appendChild(card);
+    });
+}
+
+// ?芯蜓?暺?
+function startCurriculumChallenge() {
+    const code = document.getElementById('challenge-node-select').value;
+    const nodeObj = DataService.getNodeByCode(code);
+    const errorType = nodeObj && nodeObj.preset_misconceptions.length > 0 
+        ? nodeObj.preset_misconceptions[0].name 
+        : '閰脣?敹?敹?;
+        
+    startChallenge(code, errorType);
+}
+
+// ?潸絲? (???唳??唳??啁?憿??
+async function startChallenge(nodeCode, errorType) {
+    AppState.currentChallengeNode = nodeCode;
+    AppState.currentChallengeErrorType = errorType;
+    
+    // ?? UI ?Ｘ
+    switchView('challenge');
+    document.getElementById('challenge-select-mode').style.display = 'none';
+    document.getElementById('challenge-play-mode').style.display = 'grid';
+    
+    // ?梯?閰?蝯?嚗＊蝷箇?敺?    document.getElementById('grading-empty').style.display = 'flex';
+    document.getElementById('grading-loading').style.display = 'none';
+    document.getElementById('grading-result-content').style.display = 'none';
+    
+    // 皜脫?璅?芰
+    document.getElementById('challenge-node-badge').textContent = `??嚗?{nodeCode}`;
+    document.getElementById('challenge-error-title').textContent = `餈瑟迎?${errorType}`;
+    
+    // ?澆 AI ?????憿
+    const questionTextElement = document.getElementById('challenge-question-text');
+    questionTextElement.textContent = '甇??澆 AI ?葦嚗雿憿葉...隢???嚗?;
+    document.getElementById('challenge-hint-text').style.display = 'none';
+    document.getElementById('challenge-answer-input').value = '';
+    
+    const model = localStorage.getItem('MATH_MISCONCEPTION_GEMINI_MODEL') || 'gemini-1.5-flash';
+    const isLocalSim = (model === 'local-simulation');
+    const isLocalOllama = (model === 'local-ollama');
+    
+    let apiKey = '';
+    if (!isLocalSim && !isLocalOllama) {
+        apiKey = localStorage.getItem('MATH_MISCONCEPTION_GEMINI_KEY');
+        if (!apiKey) {
+            questionTextElement.textContent = '??隢?閮剖?雿? Gemini API Key ??脰????';
+            return;
+        }
+    }
+    
+    const nodeObj = DataService.getNodeByCode(nodeCode);
+    
+    try {
+        let parsed;
+        if (isLocalSim) {
+            parsed = HeuristicDiagnosticEngine.generateChallenge(nodeCode, errorType, AppState.grade);
+        } else {
+            const prompt = `雿銝雿扛?暑瞏????詨飛?粹??葦???箔????撠?${AppState.grade} 撟渡?摮貊?蝺渡??摮詨?憿?            
+- 撠?隤脩雇??嚗${nodeCode}] ${nodeObj ? nodeObj.title : ''}??- ??蝝啁?嚗?{nodeObj ? nodeObj.description : ''}??- 摮貊??Ｚ?蕙??憿???{errorType}?憿?蕭        } else {
+            const prompt = `雿銝雿扛????????撠摮貉???頛??葦???寞?? ${AppState.grade} 撟渡?摮貊??刻蕙???唬葉??蝑?
+- ?憿嚗?{AppState.currentChallengeQuestion.question}
+- 璅?蝑?嚗?{AppState.currentChallengeQuestion.correct_answer}
+- 閫???詨?嚗?{AppState.currentChallengeQuestion.conceptual_explanation}
+- 摮貊?撖怎?蝞???蝑?${studentAnswer}
+- ?祇????玨蝬望?璅嚗${AppState.currentChallengeNode}]
+- 摮貊???舐?餈瑟?敹蛛?${AppState.currentChallengeErrorType}
+
+??嫣遙??
+1. 隞敦?寥摮貊???撘?蝔?蝑?嚗?瑟?行迤蝣箝?2. ?斗摮貊??臬??撅鈭迤蝣箇?璁艙嚗?*瘝?**?臬??祉?餈瑟隤歹???overcame_misconception 閮剔 true嚗?3. 蝯血銝???萇?????(score 0~100)??4. 蝯血皞恍成銝扛???I ?葦??隤??湔蝔勗????????摮詻???撠?嚗之??鞈??臬?隞????蕙?芰嚗????臭?嚗?曌隞???岫嚗??冽扔摨行滓憿舀??????餅?閫?迤蝣箇?蝞???5. 雿????芾??銝?泵?誑銝?JSON ?澆??隞塚?銝??隞颱? markdown 憭?嚗? \`\`\`json 嚗?
+?澆?閬?嚗?{
+  "is_correct": true/false (蝑??郊撽?血??冽迤蝣?,
+  "score": 0~100 ????(?詨?),
+  "overcame_misconception": true/false (摮貊??臬蝣箏祕??鈭蕙?隤?,
+  "feedback": "蝯血飛??曌?澈擐冽?撠???瘞??摰??虜皞急?擃票嚗???摮貊??質敺?銝虫??鋡怨摰?
+}`;
+
+            if (isLocalOllama) {
+                parsed = await callLocalOllamaChallenge(prompt);
+            } else {
+                const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{ parts: [{ text: prompt }] }],
+                        generationConfig: { responseMimeType: "application/json" }
+                    })
+                });
+
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                
+                const resultData = await response.json();
+                const rawText = resultData.candidates[0].content.parts[0].text.trim();
+                
+                try {
+                    parsed = JSON.parse(rawText);
+                } catch (e) {
+                    const match = rawText.match(/\{[\s\S]*\}/);
+                    parsed = JSON.parse(match[0]);
+                }
+            }
+        }arsed = JSON.parse(rawText);
+                } catch (e) {
+                    const match = rawText.match(/\{[\s\S]*\}/);
+                    parsed = JSON.parse(match[0]);
+                }
+            }
+        }
+        
+        AppState.currentChallengeQuestion = parsed;
+        
+        // 皜脫?憿??蝷?        questionTextElement.textContent = parsed.question;
+        document.getElementById('challenge-hint-text').textContent = parsed.hint || '?葦?訾縑雿?隞敦蝞??停?臭誑??';
+        
+    } catch (e) {
+        console.error(e);
+        questionTextElement.textContent = '??AI ?葦?粹?憭望?鈭?隢??璉??啜蒂??銝甈∪?嚗?;
+        showToast('憿??憭望?嚗??岫銝甈∴?', 'danger');
+    }
+}
+
+// ??箸???function exitChallenge() {
+    AppState.currentChallengeNode = null;
+    AppState.currentChallengeErrorType = '';
+    AppState.currentChallengeQuestion = null;
+    
+    document.getElementById('challenge-select-mode').style.display = 'block';
+    document.getElementById('challenge-play-mode').style.display = 'none';
+}
+
+// ???內憿舐內
+function toggleHint() {
+    const text = document.getElementById('challenge-hint-text');
+    if (text.style.display === 'none') {
+        text.style.display = 'block';
+    } else {
+        text.style.display = 'none';
+    }
+}
+
+// ?漱?蝑??脰??箄?寞
+async function submitChallengeAnswer() {
+    const studentAnswer = document.getElementById('challenge-answer-input').value.trim();
+    if (!studentAnswer) {
+        showToast('隢?憛怠神雿?閫????', 'warning');
+        return;
+    }
+    
+    if (!AppState.currentChallengeQuestion) {
+        showToast('憿撠??摰嚗???銝銝?嚗?, 'warning');
+        return;
+    }
+    
+    // ?脣?寞頛???    document.getElementById('grading-empty').style.display = 'none';
+    document.getElementById('grading-result-content').style.display = 'none';
+    document.getElementById('grading-loading').style.display = 'flex';
+    
+    const model = localStorage.getItem('MATH_MISCONCEPTION_GEMINI_MODEL') || 'gemini-1.5-flash';
+    const isLocalSim = (model === 'local-simulation');
+    const isLocalOllama = (model === 'local-ollama');
+    
+    let apiKey = '';
+    if (!isLocalSim && !isLocalOllama) {
+        apiKey = localStorage.getItem('MATH_MISCONCEPTION_GEMINI_KEY');
+    }
+    
+    try {
+        let parsed;
+        if (isLocalSim) {
+            parsed = HeuristicDiagnosticEngine.gradeChallenge(
+                AppState.currentChallengeNode,
+                AppState.currentChallengeErrorType,
+                studentAnswer,
+                AppState.currentChallengeQuestion
+            );
+        } else {
+            const prompt = `雿銝雿扛????????撠摮貉???頛??葦???寞?? ${AppState.grade} 撟渡?摮貊??刻蕙???唬葉??蝑?
+- ?憿嚗?{AppState.currentChallengeQuestion.question}
+- 璅?蝑?嚗?{AppState.currentChallengeQuestion.correct_answer}
+- 閫???詨?嚗?{AppState.currentChallengeQuestion.conceptual_explanation}
+- 摮貊?撖怎?蝞???蝑?${studentAnswer}
+- ?祇????玨蝬望?璅嚗${AppState.currentChallengeNode}]
+- 摮貊???舐?餈瑟?敹蛛?${AppState.currentChallengeErrorType}

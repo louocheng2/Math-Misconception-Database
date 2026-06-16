@@ -190,15 +190,21 @@ function checkApiKeySetup() {
     let model = localStorage.getItem('MATH_MISCONCEPTION_GROQ_MODEL') || 'llama-3.3-70b-versatile';
     if (model === 'llama3-70b-8192' || model === 'gemini-1.5-flash' || model === 'gemini-2.0-flash' || model === 'gemini-1.5-pro') model = 'llama-3.3-70b-versatile';
     if (model === 'llama3-8b-8192') model = 'llama-3.1-8b-instant';
-    const key = localStorage.getItem('MATH_MISCONCEPTION_GROQ_KEY') || (typeof DEFAULT_GROQ_KEY !== 'undefined' ? DEFAULT_GROQ_KEY : '');
+    
+    // 從 GroqKeyManager 讀取金鑰清單
+    const keys = typeof GroqKeyManager !== 'undefined' ? GroqKeyManager.getKeys() : [];
     const banner = document.getElementById('api-warning-banner');
     
     if (model === 'local-simulation' || model === 'local-ollama') {
         banner.style.display = 'none';
-    } else if (!key) {
+    } else if (keys.length === 0) {
         banner.style.display = 'flex';
     } else {
         banner.style.display = 'none';
+    }
+    
+    if (typeof updateGroqStatusUI === 'function') {
+        updateGroqStatusUI();
     }
 }
 
@@ -356,10 +362,9 @@ async function runStudentDiagnosis() {
     const isLocalSim = (model === 'local-simulation');
     const isLocalOllama = (model === 'local-ollama');
     
-    let apiKey = '';
     if (!isLocalSim && !isLocalOllama) {
-        apiKey = localStorage.getItem('MATH_MISCONCEPTION_GROQ_KEY') || (typeof DEFAULT_GROQ_KEY !== 'undefined' ? DEFAULT_GROQ_KEY : '');
-        if (!apiKey) {
+        const keysList = GroqKeyManager.getKeys();
+        if (keysList.length === 0) {
             showToast('請先設定你的 Groq API Key 喔！', 'danger');
             return;
         }
@@ -482,27 +487,75 @@ JSON 格式要求：
                 messageContent = prompt;
             }
 
-            const response = await fetch(url, {
-                method: 'POST',
-                headers: { 
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${apiKey}`
-                },
-                body: JSON.stringify({
-                    model: targetModel,
-                    messages: [{ role: "user", content: messageContent }],
-                    temperature: 0.5
-                })
-            });
-
-                if (!response.ok) { 
-        const errText = await response.text(); 
-        console.error('Groq API Error:', errText); 
-        throw new Error(`HTTP ${response.status}: ${errText.substring(0, 100)}`); 
-    }
+            // Rotation retry loop
+            let response;
+            let success = false;
+            let lastError = null;
+            const keysList = GroqKeyManager.getKeys();
+            const maxAttempts = Math.max(1, keysList.length);
+            
+            for (let attempt = 0; attempt < maxAttempts; attempt++) {
+                const currentKey = GroqKeyManager.getKey();
+                if (!currentKey) {
+                    throw new Error('未設定 Groq API Key');
+                }
                 
-                const resultData = await response.json();
-                const rawText = resultData.choices[0].message.content.trim();
+                try {
+                    response = await fetch(url, {
+                        method: 'POST',
+                        headers: { 
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${currentKey}`
+                        },
+                        body: JSON.stringify({
+                            model: targetModel,
+                            messages: [{ role: "user", content: messageContent }],
+                            temperature: 0.5
+                        })
+                    });
+                    
+                    if (response.ok) {
+                        success = true;
+                        break;
+                    }
+                    
+                    const errText = await response.text();
+                    console.error(`Attempt ${attempt + 1} failed:`, errText);
+                    
+                    const isQuota = response.status === 429 || 
+                                    errText.toLowerCase().includes('quota') || 
+                                    errText.toLowerCase().includes('rate limit') ||
+                                    errText.toLowerCase().includes('exceeded');
+                                    
+                    if (isQuota && keysList.length > 1) {
+                        console.warn(`Student Diag: Key exhausted. Rotating to next key.`);
+                        showToast(`金鑰額度超出，自動切換至下一把備用金鑰...`, 'warning');
+                        GroqKeyManager.rotateKey();
+                        updateGroqStatusUI();
+                        continue;
+                    } else {
+                        throw new Error(`HTTP ${response.status}: ${errText.substring(0, 100)}`);
+                    }
+                } catch (e) {
+                    lastError = e;
+                    if (keysList.length > 1 && attempt < maxAttempts - 1) {
+                        const errText = e.message || '';
+                        if (errText.toLowerCase().includes('quota') || errText.toLowerCase().includes('rate limit') || errText.toLowerCase().includes('429') || errText.toLowerCase().includes('exceeded')) {
+                            GroqKeyManager.rotateKey();
+                            updateGroqStatusUI();
+                            continue;
+                        }
+                    }
+                    throw e;
+                }
+            }
+            
+            if (!success) {
+                throw lastError || new Error('所有金鑰均不可用');
+            }
+            
+            const resultData = await response.json();
+            const rawText = resultData.choices[0].message.content.trim();
             
             try {
                 parsedResult = JSON.parse(rawText);
@@ -865,16 +918,175 @@ async function startChallenge(nodeCode, errorType) {
     const isLocalSim = (model === 'local-simulation');
     const isLocalOllama = (model === 'local-ollama');
     
-    let apiKey = '';
-    if (!isLocalSim && !isLocalOllama) {
-        apiKey = localStorage.getItem('MATH_MISCONCEPTION_GROQ_KEY') || (typeof DEFAULT_GROQ_KEY !== 'undefined' ? DEFAULT_GROQ_KEY : '');
-        if (!apiKey) {
-            questionTextElement.textContent = '❌ 請先設定你的 Groq API Key 才能進行挑戰喔！';
-            return;
+    const nodeObj = DataService.getNodeByCode(nodeCode);
+    
+    try {
+        let parsed;
+        if (isLocalSim) {
+            parsed = HeuristicDiagnosticEngine.generateChallenge(nodeCode, errorType, AppState.grade);
+        } else {
+            const prompt = `你是一位親切、活潑的國小數學專屬輔導老師。現在適合給 ${AppState.grade} 年級學生練習的數學挑戰題。            
+- 對應課綱指標：[${nodeCode}] ${nodeObj ? nodeObj.title : ''}
+- 指標細節：${nodeObj ? nodeObj.description : ''}
+- 學生面臨的迷思問題是：「${errorType}」。本題目要針對這個迷思來出題。
+
+【出題任務】
+1. 請出一道生活情境的應用題，不要太長，文字適合國小生閱讀。
+2. 題目必須要能精準測驗學生是否具備上述迷思。
+3. 題目需要包含一些干擾訊息，讓有迷思的學生容易選錯或算錯。
+4. 提供一個如果學生卡住時的簡短提示 (hint)。
+5. 提供這題的標準答案與觀念解說。
+6. 你必須，也只能輸出一個符合以下 JSON 格式的物件，不要包含任何 markdown 外框（如 \`\`\`json ）。
+
+需要的格式：
+{
+  "question": "生活情境題目的完整敘述",
+  "hint": "給學生的小提示",
+  "correct_answer": "這題的最終正確答案 (簡短)",
+  "conceptual_explanation": "老師的解答與觀念解析"
+}`;
+
+            if (isLocalOllama) {
+                parsed = await callLocalOllamaChallenge(prompt);
+            } else {
+                const url = `https://api.groq.com/openai/v1/chat/completions`;
+                
+                // Rotation retry loop
+                let response;
+                let success = false;
+                let lastError = null;
+                const keysList = GroqKeyManager.getKeys();
+                const maxAttempts = Math.max(1, keysList.length);
+                
+                for (let attempt = 0; attempt < maxAttempts; attempt++) {
+                    const currentKey = GroqKeyManager.getKey();
+                    if (!currentKey) throw new Error('請先設定你的 Groq API Key 才能進行挑戰喔！');
+                    
+                    try {
+                        response = await fetch(url, {
+                            method: 'POST',
+                            headers: { 
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${currentKey}`
+                            },
+                            body: JSON.stringify({
+                                model: model,
+                                messages: [{ role: "user", content: prompt }],
+                                response_format: { type: "json_object" },
+                                temperature: 0.5
+                            })
+                        });
+                        
+                        if (response.ok) {
+                            success = true;
+                            break;
+                        }
+                        
+                        const errJson = await response.json().catch(() => ({}));
+                        const errMsg = errJson.error?.message || `HTTP ${response.status}`;
+                        
+                        const isQuota = response.status === 429 || 
+                                        errMsg.toLowerCase().includes('quota') || 
+                                        errMsg.toLowerCase().includes('rate limit') ||
+                                        errMsg.toLowerCase().includes('exceeded');
+                                        
+                        if (isQuota && keysList.length > 1) {
+                            console.warn(`Challenge Gen: Key exhausted. Rotating to next key.`);
+                            showToast(`金鑰額度超出，自動切換至下一把備用金鑰...`, 'warning');
+                            GroqKeyManager.rotateKey();
+                            updateGroqStatusUI();
+                            continue;
+                        } else {
+                            throw new Error(errMsg);
+                        }
+                    } catch (e) {
+                        lastError = e;
+                        if (keysList.length > 1 && attempt < maxAttempts - 1) {
+                            const errText = e.message || '';
+                            if (errText.toLowerCase().includes('quota') || errText.toLowerCase().includes('rate limit') || errText.toLowerCase().includes('429') || errText.toLowerCase().includes('exceeded')) {
+                                GroqKeyManager.rotateKey();
+                                updateGroqStatusUI();
+                                continue;
+                            }
+                        }
+                        throw e;
+                    }
+                }
+                
+                if (!success) throw lastError || new Error('所有金鑰均不可用');
+                
+                const resultData = await response.json();
+                const rawText = resultData.choices[0].message.content.trim();
+                
+                try {
+                    parsed = JSON.parse(rawText);
+                } catch (e) {
+                    const match = rawText.match(/\{[\s\S]*\}/);
+                    if (match) {
+                        parsed = JSON.parse(match[0]);
+                    } else {
+                        throw new Error('AI 老師的題目解析失敗，請稍後重試。');
+                    }
+                }
+            }
         }
+        
+        AppState.currentChallengeQuestion = parsed;
+        
+        // 渲染題目與提示
+        questionTextElement.textContent = parsed.question;
+        document.getElementById('challenge-hint-text').textContent = parsed.hint || '老師相信你，仔細思考一下就可以囉！';
+        
+    } catch (e) {
+        console.error(e);
+        questionTextElement.textContent = '❌ 呼叫 AI 老師出題失敗了，請點擊「放棄挑戰」並重新挑戰一次喔！';
+        showToast('題目生成失敗，請重試！', 'danger');
+    }
+}
+
+// 放棄挑戰
+function exitChallenge() {
+    AppState.currentChallengeNode = null;
+    AppState.currentChallengeErrorType = '';
+    AppState.currentChallengeQuestion = null;
+    
+    document.getElementById('challenge-select-mode').style.display = 'block';
+    document.getElementById('challenge-play-mode').style.display = 'none';
+}
+
+// 顯示/隱藏提示
+function toggleHint() {
+    const text = document.getElementById('challenge-hint-text');
+    if (text.style.display === 'none') {
+        text.style.display = 'block';
+    } else {
+        text.style.display = 'none';
+    }
+}
+
+// 提交挑戰答案並呼叫 AI 批改
+async function submitChallengeAnswer() {
+    const studentAnswer = document.getElementById('challenge-answer-input').value.trim();
+    if (!studentAnswer) {
+        showToast('請先輸入你的解答與算式喔！', 'warning');
+        return;
     }
     
-    const nodeObj = DataService.getNodeByCode(nodeCode);
+    if (!AppState.currentChallengeQuestion) {
+        showToast('題目尚未載入完成喔！', 'warning');
+        return;
+    }
+    
+    // 進入批改狀態
+    document.getElementById('grading-empty').style.display = 'none';
+    document.getElementById('grading-result-content').style.display = 'none';
+    document.getElementById('grading-loading').style.display = 'flex';
+    
+    let model = localStorage.getItem('MATH_MISCONCEPTION_GROQ_MODEL') || 'llama-3.3-70b-versatile';
+    if (model === 'llama3-70b-8192' || model === 'gemini-1.5-flash' || model === 'gemini-2.0-flash' || model === 'gemini-1.5-pro') model = 'llama-3.3-70b-versatile';
+    if (model === 'llama3-8b-8192') model = 'llama-3.1-8b-instant';
+    const isLocalSim = (model === 'local-simulation');
+    const isLocalOllama = (model === 'local-ollama');
     
     try {
         let parsed;
@@ -914,21 +1126,70 @@ async function startChallenge(nodeCode, errorType) {
                 parsed = await callLocalOllamaChallenge(prompt);
             } else {
                 const url = `https://api.groq.com/openai/v1/chat/completions`;
-                const response = await fetch(url, {
-                    method: 'POST',
-                    headers: { 
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${apiKey}`
-                    },
-                    body: JSON.stringify({
-                        model: model,
-                        messages: [{ role: "user", content: prompt }],
+                
+                // Rotation retry loop
+                let response;
+                let success = false;
+                let lastError = null;
+                const keysList = GroqKeyManager.getKeys();
+                const maxAttempts = Math.max(1, keysList.length);
+                
+                for (let attempt = 0; attempt < maxAttempts; attempt++) {
+                    const currentKey = GroqKeyManager.getKey();
+                    if (!currentKey) throw new Error('請設定你的 Groq API Key 喔！');
+                    
+                    try {
+                        response = await fetch(url, {
+                            method: 'POST',
+                            headers: { 
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${currentKey}`
+                            },
+                            body: JSON.stringify({
+                                model: model,
+                                messages: [{ role: "user", content: prompt }],
+                                response_format: { type: "json_object" },
+                                temperature: 0.5
+                            })
+                        });
                         
-                        temperature: 0.5
-                    })
-                });
-
-                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                        if (response.ok) {
+                            success = true;
+                            break;
+                        }
+                        
+                        const errJson = await response.json().catch(() => ({}));
+                        const errMsg = errJson.error?.message || `HTTP ${response.status}`;
+                        
+                        const isQuota = response.status === 429 || 
+                                        errMsg.toLowerCase().includes('quota') || 
+                                        errMsg.toLowerCase().includes('rate limit') ||
+                                        errMsg.toLowerCase().includes('exceeded');
+                                        
+                        if (isQuota && keysList.length > 1) {
+                            console.warn(`Challenge Grading: Key exhausted. Rotating to next key.`);
+                            showToast(`金鑰額度超出，自動切換至下一把備用金鑰...`, 'warning');
+                            GroqKeyManager.rotateKey();
+                            updateGroqStatusUI();
+                            continue;
+                        } else {
+                            throw new Error(errMsg);
+                        }
+                    } catch (e) {
+                        lastError = e;
+                        if (keysList.length > 1 && attempt < maxAttempts - 1) {
+                            const errText = e.message || '';
+                            if (errText.toLowerCase().includes('quota') || errText.toLowerCase().includes('rate limit') || errText.toLowerCase().includes('429') || errText.toLowerCase().includes('exceeded')) {
+                                GroqKeyManager.rotateKey();
+                                updateGroqStatusUI();
+                                continue;
+                            }
+                        }
+                        throw e;
+                    }
+                }
+                
+                if (!success) throw lastError || new Error('所有金鑰均不可用');
                 
                 const resultData = await response.json();
                 const rawText = resultData.choices[0].message.content.trim();
@@ -937,7 +1198,11 @@ async function startChallenge(nodeCode, errorType) {
                     parsed = JSON.parse(rawText);
                 } catch (e) {
                     const match = rawText.match(/\{[\s\S]*\}/);
-                    parsed = JSON.parse(match[0]);
+                    if (match) {
+                        parsed = JSON.parse(match[0]);
+                    } else {
+                        throw new Error('AI 老師的批改解析失敗，請重新送出一次喔！');
+                    }
                 }
             }
         }
@@ -979,8 +1244,6 @@ async function startChallenge(nodeCode, errorType) {
         document.getElementById('grading-score').textContent = `${parsed.score} 分`;
         document.getElementById('grading-feedback').textContent = parsed.feedback;
         
-        // 如果挑戰成功，且原本是個錯題紀錄，我們可以把本地資料中該學生對應此迷思的某些舊紀錄標註或同步
-        // 這裡為了保持簡單，僅寫出提示。
         showToast('批改完成！你得到 ' + parsed.score + ' 分！');
         
     } catch (e) {
@@ -988,6 +1251,58 @@ async function startChallenge(nodeCode, errorType) {
         document.getElementById('grading-loading').style.display = 'none';
         document.getElementById('grading-empty').style.display = 'flex';
         showToast('批改時發生錯誤，請再提交一次試試看喔！', 'danger');
+    }
+}
+
+// 呼叫本地 Ollama 服務進行挑戰出題與批改的專用函式
+async function callLocalOllamaChallenge(prompt) {
+    const ollamaModelName = localStorage.getItem('MATH_MISCONCEPTION_OLLAMA_MODEL') || 'qwen2.5:3b';
+    const url = `http://localhost:11434/api/chat`;
+    const payload = {
+        model: ollamaModelName,
+        messages: [
+            { role: "system", content: "You are a professional math helper that outputs JSON only." },
+            { role: "user", content: prompt }
+        ],
+        format: "json",
+        options: {
+            temperature: 0.1
+        },
+        stream: false
+    };
+
+    try {
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+            throw new Error(`Ollama 伺服器回傳狀態碼 ${response.status}`);
+        }
+
+        const data = await response.json();
+        const jsonText = data.message.content.trim();
+        return JSON.parse(jsonText);
+    } catch (err) {
+        console.error(err);
+        throw new Error(`連線本地 Ollama 失敗。請確認 Ollama 已啟動 (http://localhost:11434)，且已下載模型 "${ollamaModelName}"。`);
+    }
+}
+
+// 更新 UI 上 Groq API 金鑰的狀態指示
+function updateGroqStatusUI() {
+    const dot = document.getElementById('groq-status-dot');
+    const text = document.getElementById('groq-status-text');
+    if (dot && text && typeof GroqKeyManager !== 'undefined') {
+        const statusText = GroqKeyManager.getStatusText();
+        text.textContent = statusText;
+        if (statusText === '未設定金鑰') {
+            dot.style.backgroundColor = 'var(--danger)';
+        } else {
+            dot.style.backgroundColor = 'var(--success)';
+        }
     }
 }
 

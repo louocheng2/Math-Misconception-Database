@@ -1,0 +1,144 @@
+﻿871: 
+872: // ??箸???873: function exitChallenge() {
+874:     AppState.currentChallengeNode = null;
+875:     AppState.currentChallengeErrorType = '';
+876:     AppState.currentChallengeQuestion = null;
+877:     
+878:     document.getElementById('challenge-select-mode').style.display = 'block';
+879:     document.getElementById('challenge-play-mode').style.display = 'none';
+880: }
+881: 
+882: // ???內憿舐內
+883: function toggleHint() {
+884:     const text = document.getElementById('challenge-hint-text');
+885:     if (text.style.display === 'none') {
+886:         text.style.display = 'block';
+887:     } else {
+888:         text.style.display = 'none';
+889:     }
+890: }
+891: 
+892: // ?漱?蝑??脰??箄?寞
+893: async function submitChallengeAnswer() {
+894:     const studentAnswer = document.getElementById('challenge-answer-input').value.trim();
+895:     if (!studentAnswer) {
+896:         showToast('隢?憛怠神雿?閫????', 'warning');
+897:         return;
+898:     }
+899:     
+900:     if (!AppState.currentChallengeQuestion) {
+901:         showToast('憿撠??摰嚗???銝銝?嚗?, 'warning');
+902:         return;
+903:     }
+904:     
+905:     // ?脣?寞頛???906:     document.getElementById('grading-empty').style.display = 'none';
+907:     document.getElementById('grading-result-content').style.display = 'none';
+908:     document.getElementById('grading-loading').style.display = 'flex';
+909:     
+910:     const model = localStorage.getItem('MATH_MISCONCEPTION_GEMINI_MODEL') || 'gemini-1.5-flash';
+911:     const isLocalSim = (model === 'local-simulation');
+912:     const isLocalOllama = (model === 'local-ollama');
+913:     
+914:     let apiKey = '';
+915:     if (!isLocalSim && !isLocalOllama) {
+916:         apiKey = localStorage.getItem('MATH_MISCONCEPTION_GEMINI_KEY');
+917:     }
+918:     
+919:     try {
+920:         let parsed;
+921:         if (isLocalSim) {
+922:             parsed = HeuristicDiagnosticEngine.gradeChallenge(
+923:                 AppState.currentChallengeNode,
+924:                 AppState.currentChallengeErrorType,
+925:                 studentAnswer,
+926:                 AppState.currentChallengeQuestion
+927:             );
+928:         } else {
+929:             const prompt = `雿銝雿扛????????撠摮貉???頛??葦???寞?? ${AppState.grade} 撟渡?摮貊??刻蕙???唬葉??蝑?930: 
+931: - ?憿嚗?{AppState.currentChallengeQuestion.question}
+932: - 璅?蝑?嚗?{AppState.currentChallengeQuestion.correct_answer}
+933: - 閫???詨?嚗?{AppState.currentChallengeQuestion.conceptual_explanation}
+934: - 摮貊?撖怎?蝞???蝑?${studentAnswer}
+935: - ?祇????玨蝬望?璅嚗${AppState.currentChallengeNode}]
+936: - 摮貊???舐?餈瑟?敹蛛?${AppState.currentChallengeErrorType}
+937: 
+938: ??嫣遙??
+939: 1. 隞敦?寥摮貊???撘?蝔?蝑?嚗?瑟?行迤蝣箝?940: 2. ?斗摮貊??臬??撅鈭迤蝣箇?璁艙嚗?*瘝?**?臬??祉?餈瑟隤歹???overcame_misconception 閮剔 true嚗?941: 3. 蝯血銝???萇?????(score 0~100)??942: 4. 蝯血皞恍成銝扛???I ?葦??隤??湔蝔勗????????摮詻???撠?嚗之??鞈??臬?隞????蕙?芰嚗????臭?嚗?曌隞???岫嚗??冽扔摨行滓憿舀??????餅?閫?迤蝣箇?蝞???943: 5. 隢??銝?泵?誑銝?JSON ?澆???銝莎?銝??憿??牧??銋?閬蝙??\`\`\`json ... \`\`\` ?脰?憭?鋆?944: 
+945: ?澆?閬?嚗?946: {
+947:   "is_correct": true/false (蝑??郊撽?血??冽迤蝣?,
+948:   "score": 0~100 ????(?詨?),
+949:   "overcame_misconception": true/false (摮貊??臬蝣箏祕??鈭蕙?隤?,
+950:   "feedback": "蝯血飛??曌?澈擐冽?撠???瘞??摰??虜皞急?擃票嚗???摮貊??質敺?銝虫??鋡怨摰?
+951: }`;
+952: 
+953:         const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+954:         const response = await fetch(url, {
+955:             method: 'POST',
+956:             headers: { 'Content-Type': 'application/json' },
+957:             body: JSON.stringify({
+958:                 contents: [{ parts: [{ text: prompt }] }],
+959:                 generationConfig: { responseMimeType: "application/json" }
+960:             })
+961:         });
+962: 
+963:         if (!response.ok) throw new Error(`HTTP ${response.status}`);
+964:         
+965:         const resultData = await response.json();
+966:         const rawText = resultData.candidates[0].content.parts[0].text.trim();
+967:         
+968:         let parsed;
+969:         try {
+970:             parsed = JSON.parse(rawText);
+971:         } catch (e) {
+972:             const match = rawText.match(/\{[\s\S]*\}/);
+973:             parsed = JSON.parse(match[0]);
+974:         }
+975:         
+976:         // 皜脫??寞蝯?
+977:         document.getElementById('grading-loading').style.display = 'none';
+978:         const content = document.getElementById('grading-result-content');
+979:         content.style.display = 'block';
+980:         
+981:         // 皜脫?????擖?982:         const starContainer = document.getElementById('grading-stars');
+983:         starContainer.innerHTML = '';
+984:         
+985:         let starsCount = 1;
+986:         if (parsed.is_correct && parsed.overcame_misconception) {
+987:             starsCount = 3;
+988:             document.getElementById('grading-verdict').textContent = '?? 摰????嚗蕙?芾◤瘨?鈭?';
+989:             document.getElementById('grading-verdict').style.color = 'var(--success)';
+990:         } else if (parsed.is_correct || parsed.overcame_misconception || parsed.score >= 70) {
+991:             starsCount = 2;
+992:             document.getElementById('grading-verdict').textContent = '?? 憭芣?鈭?敹怨?摰???';
+993:             document.getElementById('grading-verdict').style.color = 'var(--warning)';
+994:         } else {
+995:             starsCount = 1;
+996:             document.getElementById('grading-verdict').textContent = '? ??嚗I ?葦?芯?蝺渡?嚗?;
+997:             document.getElementById('grading-verdict').style.color = 'var(--danger)';
+998:         }
+999:         
+1000:         for (let i = 0; i < 3; i++) {
+1001:             const star = document.createElement('i');
+1002:             if (i < starsCount) {
+1003:                 star.className = 'fa-solid fa-star';
+1004:             } else {
+1005:                 star.className = 'fa-regular fa-star';
+1006:             }
+1007:             starContainer.appendChild(star);
+1008:         }
+1009:         
+1010:         document.getElementById('grading-score').textContent = `${parsed.score} ?;
+1011:         document.getElementById('grading-feedback').textContent = parsed.feedback;
+1012:         
+1013:         // 憒????嚗???臬憿????隞交??砍鞈?銝剛府摮貊?撠?甇方蕙????????閮餅??郊
+1014:         // ?ㄐ?箔?靽?蝪∪嚗?撖怠?內??1015:         showToast('?寞摰?嚗?敺 ' + parsed.score + ' ??');
+1016:         
+1017:     } catch (e) {
+1018:         console.error(e);
+1019:         document.getElementById('grading-loading').style.display = 'none';
+1020:         document.getElementById('grading-empty').style.display = 'flex';
+1021:         showToast('?寞??隤歹?隢??漱銝甈∟岫閰衣???', 'danger');
+1022:     }
+1023: }
+1024: 
+1025: // ==========================================

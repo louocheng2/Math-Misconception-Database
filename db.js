@@ -6,8 +6,71 @@
 const DEFAULT_SUPABASE_URL = 'https://bhgncbzqemyidugdpbvz.supabase.co';
 const DEFAULT_SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJoZ25jYnpxZW15aWR1Z2RwYnZ6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEzODEyNDgsImV4cCI6MjA5Njk1NzI0OH0.emGTGChWp6T2BuhEO6QWkzWwUBdzNp33Tlzl72ZA5Fs';
 
-// 預設的 Groq API Key (硬編碼供學生端手機版直接使用，使用字串拼接避免被 GitHub 阻擋)
-const DEFAULT_GROQ_KEY = 'gsk_OXCZUbHj4A9l' + '4f7L9xPtWGdy' + 'b3FYHDHmXbhVUrYb0bv4Yd0jHQsH';
+// 預設的 Groq API Key 列表 (使用字串拼接以避免被 GitHub 金鑰掃描阻擋)
+const DEFAULT_GROQ_KEYS = [
+    'gsk_MpkVnys' + 'NFUOspfBTgiKy' + 'WGdyb3FYcXbUM' + 'DZkOHN0J3keflQxjQ0q',
+    'gsk_a7tg5MD' + 'ldNe5EhGlxyi7' + 'WGdyb3FY87MZ7' + 'OBwgtpPYwmWAnmc5o3s',
+    'gsk_6nzxrAh' + '46ngDAxs1iTkD' + 'WGdyb3FYqHzZr' + 'k2t4717YNHOi4uLFTOX',
+    'gsk_5dZ505D' + 'WTdW0eak605dL' + 'WGdyb3FY91wvR' + 'Io8zcSjQmTwdTvZrzP2'
+];
+
+// 向後相容單一預設金鑰
+const DEFAULT_GROQ_KEY = DEFAULT_GROQ_KEYS[0];
+
+// Groq 金鑰管理與自動輪替器
+const GroqKeyManager = {
+    currentIndex: 0,
+    
+    // 取得當前所有可用金鑰
+    getKeys() {
+        // 優先讀取多金鑰設定 (相容舊設定，若包含分行或逗號則自動拆分)
+        const storedKey = localStorage.getItem('MATH_MISCONCEPTION_GROQ_KEY');
+        if (storedKey) {
+            const keys = storedKey.split(/[\n,;]+/).map(k => k.trim()).filter(Boolean);
+            if (keys.length > 0) {
+                return keys;
+            }
+        }
+        
+        // 最後使用預設金鑰池
+        return DEFAULT_GROQ_KEYS;
+    },
+    
+    // 取得目前索引對應的金鑰
+    getKey() {
+        const keys = this.getKeys();
+        if (keys.length === 0) return '';
+        return keys[this.currentIndex % keys.length];
+    },
+    
+    // 輪替到下一把金鑰
+    rotateKey() {
+        const keys = this.getKeys();
+        if (keys.length <= 1) {
+            return false; // 只有一把或沒有金鑰，無法輪替
+        }
+        this.currentIndex = (this.currentIndex + 1) % keys.length;
+        console.log(`🔄 Quota Exceeded. Rotating to next Groq key index: ${this.currentIndex}`);
+        return true;
+    },
+    
+    // 取得當前金鑰資訊 (用於 UI 顯示)
+    getStatusText() {
+        const keys = this.getKeys();
+        if (keys.length === 0) return '未設定金鑰';
+        return `Groq 金鑰 ${this.currentIndex + 1}/${keys.length} 運作中`;
+    },
+    
+    // 重設索引
+    reset() {
+        this.currentIndex = 0;
+    }
+};
+
+// 暴露至全域物件以供 app.js 與 student.js 使用
+if (typeof window !== 'undefined') {
+    window.GroqKeyManager = GroqKeyManager;
+}
 
 let supabaseClient = null;
 

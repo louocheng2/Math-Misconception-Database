@@ -60,6 +60,10 @@
                     <span class="status-dot" id="db-status-dot"></span>
                     <span id="db-status-text">雲端資料庫已離線</span>
                 </div>
+                <div class="cloud-status" style="margin-top: 5px;">
+                    <span class="status-dot" id="groq-status-dot" style="background-color: var(--success);"></span>
+                    <span id="groq-status-text">Groq 金鑰載入中...</span>
+                </div>
             </div>
         </aside>
 
@@ -427,9 +431,9 @@
                         </div>
                         
                         <div class="form-group">
-                            <label class="form-label" for="setting-groq-key">Groq API Key <span style="color:var(--danger)">*</span></label>
-                            <input type="password" id="setting-groq-key" class="form-control" placeholder="輸入以 Groq Console 獲取的 API_KEY">
-                            <p class="upload-hint" style="margin-top: 6px;">⚠️ 備註：此金鑰僅會加密儲存於您本機瀏覽器的 localStorage 中，不會流向其他伺服器，安全無虞。</p>
+                            <label class="form-label" for="setting-groq-key">Groq API Key(s) <span style="color:var(--danger)">*</span></label>
+                            <textarea id="setting-groq-key" class="form-control" rows="3" placeholder="請輸入 API 金鑰。支援輸入多組金鑰（每行一組）以進行自動輪替與防額度超載。"></textarea>
+                            <p class="upload-hint" style="margin-top: 6px;">⚠️ 備註：此金鑰僅會加密儲存於您本機瀏覽器的 localStorage 中，多組金鑰將會自動輪替使用，安全無虞。</p>
                         </div>
 
                         <div class="form-row">
