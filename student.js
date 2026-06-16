@@ -390,20 +390,19 @@ async function runStudentDiagnosis() {
 
     try {
         let parsedResult;
-        
         if (isLocalSim) {
             parsedResult = await HeuristicDiagnosticEngine.diagnose(AppState.studentName, AppState.grade, question, calcText);
         } else if (isLocalOllama) {
             parsedResult = await callLocalOllama(AppState.studentName, AppState.grade, question, calcText, true);
         } else {
-            // 載入該年級與以前所有年級的指標上下文 (允許跨年級追溯基礎迷思)
+            // 載入當前年級與前一個年級的課綱，限制範圍以防止 Token 數過大超出 Groq 6000 TPM 限制
             const targetGrade = parseInt(AppState.grade);
-            const allNodes = DataService.getAllNodes().filter(n => n.grade <= targetGrade);
+            const allNodes = DataService.getAllNodes().filter(n => n.grade === targetGrade || n.grade === targetGrade - 1);
             const curriculumContext = allNodes.map(n => {
-                // 為了節省 Token，只提供最近兩年的詳細預設迷思，以前的年級只提供指標標題與說明
-                if (n.grade >= targetGrade - 1) {
-                    const presets = n.preset_misconceptions.map(m => ` - ${m.name}: ${m.description}`).join('\n');
-                    return `指標 [${n.code}] ${n.title}\n指標說明：${n.description}\n預設迷思樣態：\n${presets}`;
+                // 格式精簡化，僅對當前年級提供迷思樣態名稱，不提供長描述，以節省 Token
+                if (n.grade === targetGrade) {
+                    const presetNames = n.preset_misconceptions.map(m => m.name).join('、');
+                    return `指標 [${n.code}] ${n.title}\n指標說明：${n.description}${presetNames ? `\n常見迷思樣態：${presetNames}` : ''}`;
                 } else {
                     return `指標 [${n.code}] ${n.title}\n指標說明：${n.description}`;
                 }
@@ -1356,13 +1355,13 @@ function showToast(message, type = 'success') {
 async function callLocalOllama(studentName, grade, question, calcText, isStudentPortal) {
     const ollamaModelName = localStorage.getItem('MATH_MISCONCEPTION_OLLAMA_MODEL') || 'qwen2.5:3b';
     
-    // 取得該年級與以前所有年級的指標縮影，提供給 Ollama 作為參考 (允許跨年級追溯基礎迷思)
+    // 取得當前與前一個年級的指標，提供給 Ollama 作為參考，以節省本地推論時間與防 context 溢出
     const targetGrade = parseInt(grade);
-    const allNodes = DataService.getAllNodes().filter(n => n.grade <= targetGrade);
+    const allNodes = DataService.getAllNodes().filter(n => n.grade === targetGrade || n.grade === targetGrade - 1);
     const curriculumContext = allNodes.map(n => {
-        if (n.grade >= targetGrade - 1) {
-            const presets = n.preset_misconceptions.map(m => ` - ${m.name}: ${m.description}`).join('\n');
-            return `指標 [${n.code}] ${n.title}\n描述：${n.description}\n常見迷思樣態：\n${presets}`;
+        if (n.grade === targetGrade) {
+            const presetNames = n.preset_misconceptions.map(m => m.name).join('、');
+            return `指標 [${n.code}] ${n.title}\n描述：${n.description}${presetNames ? `\n常見迷思樣態：${presetNames}` : ''}`;
         } else {
             return `指標 [${n.code}] ${n.title}\n描述：${n.description}`;
         }
